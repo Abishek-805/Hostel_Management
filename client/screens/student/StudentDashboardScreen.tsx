@@ -26,6 +26,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/hooks/useTheme";
+import { getQueryFn } from "@/lib/query-client";
 import { Colors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { StudentStackParamList } from "@/navigation/StudentTabNavigator";
 
@@ -121,11 +122,13 @@ export default function StudentDashboardScreen() {
 
   const { data: stats, refetch: refetchStats } = useQuery({
     queryKey: ['/stats/admin'],
+    queryFn: getQueryFn({ on401: 'returnNull' }),
     enabled: user?.role === 'admin'
   });
 
   const { data: hostelSettings } = useQuery({
     queryKey: ['hostel-settings', user?.hostelBlock],
+    queryFn: getQueryFn({ on401: 'returnNull' }),
     enabled: !!user?.hostelBlock,
   });
 

@@ -14,7 +14,7 @@ import { Button } from "@/components/Button";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest, getQueryFn } from "@/lib/query-client";
 import { Colors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { HOSTEL_CODES } from "@/constants/hostels";
 import { FloatingBackground } from "@/components/FloatingBackground";
@@ -315,6 +315,7 @@ export default function AdminProfileScreen() {
 
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['/stats/admin'],
+    queryFn: getQueryFn({ on401: 'throw' }),
     enabled: user?.role === 'admin'
   });
   const statsData = stats as any || { studentCount: 0, pendingLeaveCount: 0, openComplaintCount: 0, absentCount: 0, absentStudents: [] };

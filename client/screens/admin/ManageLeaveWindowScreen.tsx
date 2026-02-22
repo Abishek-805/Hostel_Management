@@ -10,7 +10,7 @@ import { ThemedView } from "@/components/ThemedView";
 import { Button } from "@/components/Button";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest, getQueryFn } from "@/lib/query-client";
 import { Colors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { FloatingBackground } from "@/components/FloatingBackground";
 import { BrandedLoadingOverlay } from "@/components/BrandedLoadingOverlay";
@@ -29,6 +29,7 @@ export default function ManageLeaveWindowScreen() {
 
     const { data: settingsData, isLoading } = useQuery({
         queryKey: ['hostel-settings', user?.hostelBlock],
+        queryFn: getQueryFn({ on401: 'throw' }),
         enabled: !!user?.hostelBlock,
     });
 

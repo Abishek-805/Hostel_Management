@@ -7,13 +7,14 @@ export interface HostelBoundary {
 // Valluvar Mens Hostel coordinates (updated location)
 const VALLUVAR_CONFIG = {
     points: [
-        { latitude: 11.270432537516632, longitude: 77.60321287355816 },
-        { latitude: 11.26989120133247, longitude: 77.60323906923166 },
-        { latitude: 11.269871015895736, longitude: 77.60293033450834 },
-        { latitude: 11.2704068470089, longitude: 77.60289291211764 },
+        { latitude: 11.273458896122523, longitude: 77.60649425525024 },
+        { latitude: 11.27341680881379, longitude: 77.60733915107322 },
+        { latitude: 11.273764028926491, longitude: 77.60702801483365 },
+        { latitude: 11.27316691529131, longitude: 77.60702265041573 },
+        { latitude: 11.273461526579116, longitude: 77.60701460378884 },
     ],
-    center: { latitude: 11.270233401520507, longitude: 77.60308379730445 },
-    radius: 100, // 100 meters radius for precise geofencing
+    center: { latitude: 11.273453635146646, longitude: 77.60697973507233 },
+    radius: 1000, // 1000 meters radius for geofencing
 };
 
 export const HOSTEL_LOCATIONS: Record<string, HostelBoundary> = {

@@ -351,11 +351,11 @@ router.post('/', authMiddleware, async (req, res) => {
     const currentTime = hours * 100 + minutes;
 
     let session: 'morning' | 'afternoon' | null = null;
-    if (currentTime >= 700 && currentTime <= 830) session = 'morning';
+    if (currentTime >= 700 && currentTime <= 1230) session = 'morning';
     else if (currentTime >= 1230 && currentTime <= 1800) session = 'afternoon';
 
     if (!session && isPresent) {
-      return res.status(400).json({ error: 'Attendance can only be marked between 07:00-08:30 AM and 12:30-06:00 PM.' });
+      return res.status(400).json({ error: 'Attendance can only be marked between 07:00-12:30 PM and 12:30-06:00 PM.' });
     }
 
     // Check for existing attendance for this date and session
@@ -826,7 +826,7 @@ router.get('/export-excel', authMiddleware, async (req: any, res) => {
       { header: 'Register ID', key: 'id', width: 15 },
       { header: 'Name', key: 'name', width: 25 },
       { header: 'Room', key: 'room', width: 10 },
-      { header: 'Morning (07:00)', key: 'morning', width: 15 },
+      { header: 'Morning (07:00-12:30)', key: 'morning', width: 15 },
       { header: 'Afternoon (12:30)', key: 'afternoon', width: 15 },
     ];
 

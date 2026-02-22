@@ -166,6 +166,9 @@ router.post("/login", async (req, res) => {
       { expiresIn: "7d" }
     );
 
+    console.log(`✅ Login successful for ${registerId}, token: ${token.substring(0, 30)}...`);
+    console.log(`✅ Token secret: ${(process.env.JWT_SECRET as string).substring(0, 20)}...`);
+
     res.json({
       success: true,
       user: {

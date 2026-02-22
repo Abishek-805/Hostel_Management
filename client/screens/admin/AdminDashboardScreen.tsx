@@ -15,6 +15,7 @@ import { ThemedView } from "@/components/ThemedView";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/hooks/useTheme";
 import { Colors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
+import { getQueryFn } from "@/lib/query-client";
 import { AdminStackParamList } from "@/navigation/AdminTabNavigator";
 
 type NavigationProp = NativeStackNavigationProp<AdminStackParamList>;
@@ -69,10 +70,15 @@ export default function AdminDashboardScreen() {
   const [activeIndex, setActiveIndex] = useState(0);
   const { data: stats, isLoading, refetch } = useQuery({
     queryKey: ['/stats/admin'],
+    queryFn: getQueryFn({ on401: 'throw' }),
     enabled: user?.role === 'admin',
     staleTime: 0
   });
-  const { data: hostelSettings } = useQuery({ queryKey: ['hostel-settings', user?.hostelBlock], enabled: !!user?.hostelBlock });
+  const { data: hostelSettings } = useQuery({ 
+    queryKey: ['hostel-settings', user?.hostelBlock], 
+    queryFn: getQueryFn({ on401: 'returnNull' }),
+    enabled: !!user?.hostelBlock 
+  });
   const [refreshing, setRefreshing] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
 

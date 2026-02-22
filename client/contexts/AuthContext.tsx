@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { apiRequest, queryClient } from "@/lib/query-client";
+import { apiRequest, queryClient, setTokenExpiredCallback } from "@/lib/query-client";
 
 type UserRole = "student" | "admin";
 
@@ -49,13 +49,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     loadStoredUser();
+    // Set up callback for when token expires
+    setTokenExpiredCallback(() => {
+      console.log("🔴 Token expired, logging out user");
+      handleTokenExpired();
+    });
   }, []);
+
+  const handleTokenExpired = async () => {
+    try {
+      await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
+      await AsyncStorage.removeItem(AUTH_TOKEN_KEY);
+      queryClient.clear();
+    } catch (e) {
+      console.error("Token expiration cleanup failed:", e);
+    } finally {
+      setUser(null);
+    }
+  };
 
   const loadStoredUser = async () => {
     try {
       const storedUser = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
-      if (storedUser) {
-        setUser(JSON.parse(storedUser));
+      const storedToken = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
+      console.log(`📝 AuthContext: Loaded user: ${storedUser ? 'YES' : 'NO'}, Token: ${storedToken ? 'YES' : 'NO'}`);
+      
+      // If we have both user and token, try to validate the token
+      if (storedUser && storedToken) {
+        try {
+          // Try to make a test request to see if token is valid
+          // We'll do this implicitly - just load the user
+          // If the token is expired, the first query will catch it and clear everything
+          setUser(JSON.parse(storedUser));
+        } catch (err) {
+          console.error("Failed to parse stored user:", err);
+          await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
+          await AsyncStorage.removeItem(AUTH_TOKEN_KEY);
+        }
+      } else if (storedUser) {
+        // User exists but no token - likely from previous logout, clear it
+        await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
       }
     } catch (error) {
       console.error("Failed to load stored user:", error);
@@ -76,14 +109,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const data = await response.json();
       if (!response.ok) {
+        console.error("🔴 Login failed:", data.error);
         return { success: false, error: data.error || "Login failed" };
       }
 
+      console.log(`✅ Login successful for ${registerId}, storing token and user`);
       await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(data.user));
       await AsyncStorage.setItem(AUTH_TOKEN_KEY, data.token);
+      console.log(`✅ Token stored: ${data.token.substring(0, 20)}...`);
       setUser(data.user);
       return { success: true };
-    } catch {
+    } catch (err) {
+      console.error("🔴 Login network error:", err);
       return { success: false, error: "Network error. Please try again." };
     }
   };

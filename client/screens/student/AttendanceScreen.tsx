@@ -12,7 +12,7 @@ import { ThemedView } from "@/components/ThemedView";
 import { Button } from "@/components/Button";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest, getQueryFn } from "@/lib/query-client";
 import { Colors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 
 import { HOSTEL_LOCATIONS, HostelBoundary } from "@/constants/hostels";
@@ -79,8 +79,8 @@ const getCurrentSession = () => {
   const minutes = now.getMinutes();
   const currentTime = hours * 100 + minutes;
 
-  // Morning: 07:00 to 08:30
-  if (currentTime >= 700 && currentTime <= 830) return 'morning';
+  // Morning: 07:00 to 12:30
+  if (currentTime >= 700 && currentTime <= 1230) return 'morning';
   // Afternoon: 12:30 to 18:00 (12:30 PM to 6:00 PM)
   if (currentTime >= 1230 && currentTime <= 1800) return 'afternoon';
 
@@ -131,6 +131,7 @@ export default function AttendanceScreen() {
 
   const { data: hostelSettings } = useQuery({
     queryKey: ['hostel-settings', user?.hostelBlock],
+    queryFn: getQueryFn({ on401: 'returnNull' }),
     enabled: !!user?.hostelBlock,
   });
 
@@ -737,26 +738,26 @@ export default function AttendanceScreen() {
             <View style={[styles.sessionItem, { backgroundColor: theme.backgroundSecondary }]}>
               <View style={[styles.sessionIcon, {
                 backgroundColor: todayAttendance?.morningMarked ? Colors.status.success + '20' :
-                  (new Date().getHours() >= 9 ? Colors.status.error + '20' : 'rgba(255,255,255,0.05)'),
+                  (new Date().getHours() >= 12 && new Date().getMinutes() >= 30 || new Date().getHours() > 12 ? Colors.status.error + '20' : Colors.status.warning + '20'),
                 overflow: 'hidden'
               }]}>
                 {todayAttendance?.morning?.photoUrl ? (
                   <Image source={{ uri: todayAttendance.morning.photoUrl }} style={StyleSheet.absoluteFill} />
                 ) : (
                   <Feather
-                    name={todayAttendance?.morningMarked ? "check" : (new Date().getHours() >= 9 ? "x" : "clock")}
+                    name={todayAttendance?.morningMarked ? "check" : (new Date().getHours() >= 12 && new Date().getMinutes() >= 30 || new Date().getHours() > 12 ? "x" : "hourglass")}
                     size={24}
                     color={todayAttendance?.morningMarked ? Colors.status.success :
-                      (new Date().getHours() >= 9 ? Colors.status.error : theme.textSecondary)}
+                      (new Date().getHours() >= 12 && new Date().getMinutes() >= 30 || new Date().getHours() > 12 ? Colors.status.error : Colors.status.warning)}
                   />
                 )}
                 {/* Small indicator overlay */}
                 <View style={[styles.statusIndicatorOverlay, {
                   backgroundColor: todayAttendance?.morningMarked ? Colors.status.success :
-                    (new Date().getHours() >= 9 ? Colors.status.error : Colors.status.warning)
+                    (new Date().getHours() >= 12 && new Date().getMinutes() >= 30 || new Date().getHours() > 12 ? Colors.status.error : Colors.status.warning)
                 }]}>
                   <Feather
-                    name={todayAttendance?.morningMarked ? "check" : (new Date().getHours() >= 9 ? "x" : "clock")}
+                    name={todayAttendance?.morningMarked ? "check" : (new Date().getHours() >= 12 && new Date().getMinutes() >= 30 || new Date().getHours() > 12 ? "x" : "hourglass")}
                     size={10}
                     color="#FFF"
                   />
@@ -767,7 +768,7 @@ export default function AttendanceScreen() {
                 color: todayAttendance?.morningMarked ? Colors.status.success :
                   (new Date().getHours() >= 9 ? Colors.status.error : theme.textSecondary)
               }]}>
-                {todayAttendance?.morningMarked ? "Present" : (new Date().getHours() >= 9 ? "Absent" : "07:00-08:30")}
+                {todayAttendance?.morningMarked ? "Present" : (new Date().getHours() >= 12 && new Date().getMinutes() >= 30 || new Date().getHours() > 12 ? "Absent" : "07:00-12:30")}
               </ThemedText>
             </View>
 
@@ -775,17 +776,17 @@ export default function AttendanceScreen() {
             <View style={[styles.sessionItem, { backgroundColor: theme.backgroundSecondary }]}>
               <View style={[styles.sessionIcon, {
                 backgroundColor: todayAttendance?.afternoonMarked ? Colors.status.success + '20' :
-                  (new Date().getHours() >= 18 ? Colors.status.error + '20' : 'rgba(255,255,255,0.05)'),
+                  (new Date().getHours() >= 18 ? Colors.status.error + '20' : Colors.status.warning + '20'),
                 overflow: 'hidden'
               }]}>
                 {todayAttendance?.afternoon?.photoUrl ? (
                   <Image source={{ uri: todayAttendance.afternoon.photoUrl }} style={StyleSheet.absoluteFill} />
                 ) : (
                   <Feather
-                    name={todayAttendance?.afternoonMarked ? "check" : (new Date().getHours() >= 18 ? "x" : "clock")}
+                    name={todayAttendance?.afternoonMarked ? "check" : (new Date().getHours() >= 18 ? "x" : "hourglass")}
                     size={24}
                     color={todayAttendance?.afternoonMarked ? Colors.status.success :
-                      (new Date().getHours() >= 18 ? Colors.status.error : theme.textSecondary)}
+                      (new Date().getHours() >= 18 ? Colors.status.error : Colors.status.warning)}
                   />
                 )}
                 {/* Small indicator overlay */}
@@ -794,7 +795,7 @@ export default function AttendanceScreen() {
                     (new Date().getHours() >= 18 ? Colors.status.error : Colors.status.warning)
                 }]}>
                   <Feather
-                    name={todayAttendance?.afternoonMarked ? "check" : (new Date().getHours() >= 18 ? "x" : "clock")}
+                    name={todayAttendance?.afternoonMarked ? "check" : (new Date().getHours() >= 18 ? "x" : "hourglass")}
                     size={10}
                     color="#FFF"
                   />

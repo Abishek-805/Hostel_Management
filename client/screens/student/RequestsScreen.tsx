@@ -12,7 +12,7 @@ import { Button } from "@/components/Button";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
-import { apiRequest } from "@/lib/query-client";
+import { apiRequest, getQueryFn } from "@/lib/query-client";
 import { Colors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { FloatingBackground } from "@/components/FloatingBackground";
 import { BrandedLoadingOverlay } from "@/components/BrandedLoadingOverlay";
@@ -49,6 +49,7 @@ export default function RequestsScreen() {
 
   const { data: hostelSettings } = useQuery({
     queryKey: ['hostel-settings', user?.hostelBlock],
+    queryFn: getQueryFn({ on401: 'returnNull' }),
     enabled: !!user?.hostelBlock,
   });
 

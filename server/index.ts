@@ -25,25 +25,29 @@ declare module "http" {
 ========================= */
 function setupCors(app: express.Application) {
   app.use((req, res, next) => {
-    const origin = req.headers.origin as string | undefined;
+    const origin = req.headers.origin;
+
+    // Must be specific origin when credentials is true
+    if (origin) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+    } else {
+      res.setHeader("Access-Control-Allow-Origin", "http://localhost:8081");
+    }
 
     res.setHeader(
-      "Access-Control-Allow-Origin",
-      origin || "http://localhost:8081"
-    );
-    res.setHeader(
       "Access-Control-Allow-Methods",
-      "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+      "GET, POST, PUT, PATCH, DELETE, OPTIONS"
     );
     res.setHeader(
       "Access-Control-Allow-Headers",
-      "Content-Type, Authorization"
+      "Content-Type, Authorization, X-Requested-With"
     );
     res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Access-Control-Max-Age", "86400");
 
-    // 🔴 REQUIRED FOR PREFLIGHT
+    // ✅ Handle Preflight (OPTIONS)
     if (req.method === "OPTIONS") {
-      return res.sendStatus(204);
+      return res.status(204).end();
     }
 
     next();
