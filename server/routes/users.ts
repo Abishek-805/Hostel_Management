@@ -5,6 +5,16 @@ import { getFaceEmbedding } from '../services/faceRecognition';
 
 const router = express.Router();
 
+// Helper function to escape regex special characters
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Helper function to build case-insensitive regex
+function buildCaseInsensitiveRegex(value: string): RegExp {
+  return new RegExp(`^${escapeRegex(value.trim())}$`, 'i');
+}
+
 // Get all users (Admin view - Scoped by Block)
 router.get('/', authMiddleware, async (req: any, res) => {
   try {
@@ -29,16 +39,18 @@ router.get('/roommates/:roomNumber/:hostelBlock', authMiddleware, async (req: an
   try {
     const { roomNumber, hostelBlock } = req.params;
 
-    // Security check: User must belong to the hostel block
-    if (req.user.hostelBlock !== hostelBlock && req.user.role !== 'admin') {
+    // Security check: Use case-insensitive comparison for block
+    if (req.user.hostelBlock?.trim().toLowerCase() !== hostelBlock?.trim().toLowerCase() && req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Unauthorized access to this block' });
     }
 
     const roommates = await User.find({
-      roomNumber,
-      hostelBlock
-    }).select('name registerId phone profileImage'); // specialized select for roommate view
+      roomNumber: buildCaseInsensitiveRegex(roomNumber),
+      hostelBlock: buildCaseInsensitiveRegex(hostelBlock)
+    }).select('name registerId phone profileImage');
 
+    console.log(`Fetching roommates: roomNumber=${roomNumber}, hostelBlock=${hostelBlock}, found: ${roommates.length}`);
+    
     res.json(roommates);
   } catch (error) {
     res.status(500).json({ error: 'Server error' });

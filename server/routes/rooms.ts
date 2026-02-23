@@ -21,6 +21,7 @@ router.get('/', authMiddleware, async (req: any, res) => {
 
     const roomOccupancy = await User.aggregate([
       { $match: { hostelBlock: { $regex: new RegExp(`^${hostelBlock.trim()}$`, 'i') } } },
+      { $project: { roomNumber: { $toLower: { $trim: { input: "$roomNumber" } } } } },
       { $group: { _id: "$roomNumber", count: { $sum: 1 } } }
     ]);
 
@@ -28,7 +29,7 @@ router.get('/', authMiddleware, async (req: any, res) => {
 
     const roomsWithOccupancy = rooms.map((room: any) => ({
       ...room,
-      currentOccupancy: occupancyMap.get(room.roomNumber) || 0
+      currentOccupancy: occupancyMap.get(room.roomNumber.toLowerCase()) || 0
     }));
 
     res.json(roomsWithOccupancy);
@@ -73,9 +74,10 @@ router.get('/block/:block', authMiddleware, async (req: any, res) => {
       }
     }
 
-    // Use aggregation to get counts per room
+    // Use aggregation to get counts per room (count all users - students and admins)
     const roomOccupancy = await User.aggregate([
       { $match: { hostelBlock: { $regex: new RegExp(`^${hostelBlock.trim()}$`, 'i') } } },
+      { $project: { roomNumber: { $toLower: { $trim: { input: "$roomNumber" } } } } },
       { $group: { _id: "$roomNumber", count: { $sum: 1 } } }
     ]);
 
@@ -83,7 +85,7 @@ router.get('/block/:block', authMiddleware, async (req: any, res) => {
 
     const roomsWithOccupancy = rooms.map((room: any) => ({
       ...room,
-      currentOccupancy: occupancyMap.get(room.roomNumber) || 0
+      currentOccupancy: occupancyMap.get(room.roomNumber.toLowerCase()) || 0
     }));
 
     res.json(roomsWithOccupancy);
