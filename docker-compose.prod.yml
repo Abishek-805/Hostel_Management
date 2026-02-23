@@ -1,0 +1,84 @@
+services:
+  # MongoDB Database (Production)
+  mongodb:
+    image: mongo:6.0
+    container_name: hostelease-mongodb-prod
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-changeme}
+      MONGO_INITDB_DATABASE: hostelease
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data_prod:/data/db
+      - mongodb_backup:/data/backup
+    networks:
+      - hostelease-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend Server (Production)
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: hostelease-backend-prod
+    restart: always
+    environment:
+      MONGODB_URI: mongodb://root:${MONGO_PASSWORD:-changeme}@mongodb:27017/hostelease
+      JWT_SECRET: ${JWT_SECRET:-changeme}
+      PORT: 5001
+      NODE_ENV: production
+    ports:
+      - "5001:5001"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    volumes:
+      - ./server/public:/app/public
+      - ./server/weights:/app/weights
+    networks:
+      - hostelease-network
+
+  # Frontend Server (Production)
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: hostelease-frontend-prod
+    restart: always
+    environment:
+      NODE_ENV: production
+      EXPO_PUBLIC_API_URL: /api
+    depends_on:
+      - backend
+    networks:
+      - hostelease-network
+
+  # Nginx Reverse Proxy (Optional)
+  nginx:
+    image: nginx:alpine
+    container_name: hostelease-nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - backend
+    networks:
+      - hostelease-network
+
+volumes:
+  mongodb_data_prod:
+  mongodb_backup:
+
+networks:
+  hostelease-network:
+    driver: bridge

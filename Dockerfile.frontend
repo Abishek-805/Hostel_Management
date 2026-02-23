@@ -1,0 +1,33 @@
+# Frontend Dockerfile (Expo)
+FROM node:20-bookworm-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+	python3 \
+	make \
+	g++ \
+	libcairo2-dev \
+	libpango1.0-dev \
+	libjpeg62-turbo-dev \
+	libgif-dev \
+	librsvg2-dev \
+	&& rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm install
+
+# Copy source code
+COPY . .
+
+# Expose port for Expo
+EXPOSE 8081
+
+# Environment
+ENV NODE_ENV=development
+
+# Start Expo web server in container-accessible mode
+CMD ["npx", "expo", "start", "--web"]

@@ -1,0 +1,68 @@
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:6.0
+    container_name: hostelease-mongodb
+    environment:
+      MONGO_INITDB_DATABASE: hostelease
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - hostelease-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Backend Server
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: hostelease-backend
+    environment:
+      MONGODB_URI: ${MONGODB_URI}
+      JWT_SECRET: ${JWT_SECRET}
+      PORT: ${PORT:-5001}
+      NODE_ENV: ${NODE_ENV:-production}
+    ports:
+      - "5001:5001"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    volumes:
+      - ./server:/app/server
+      - ./server/public:/app/public
+      - ./server/weights:/app/weights
+    networks:
+      - hostelease-network
+    restart: on-failure
+
+  # Frontend Server (Expo Web)
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: hostelease-frontend
+    environment:
+      NODE_ENV: development
+      EXPO_PUBLIC_API_URL: http://localhost:5001
+    ports:
+      - "8081:8081"
+    depends_on:
+      - backend
+    volumes:
+      - ./client:/app/client
+    networks:
+      - hostelease-network
+    restart: on-failure
+
+volumes:
+  mongodb_data:
+
+networks:
+  hostelease-network:
+    driver: bridge

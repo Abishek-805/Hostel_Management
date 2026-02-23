@@ -5,6 +5,9 @@ import User from "../models/User";
 import Room from "../models/Room";
 import { authMiddleware } from "../middleware/auth";
 
+const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const buildRegisterIdRegex = (value: string) => new RegExp(`^\\s*${escapeRegex(value)}\\s*$`, "i");
+
 // Helper to sign token
 const signToken = (user: any) => {
   return jwt.sign(
@@ -42,7 +45,7 @@ router.post("/register", async (req, res) => {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    const existingUser = await User.findOne({ registerId });
+    const existingUser = await User.findOne({ registerId: buildRegisterIdRegex(registerId.trim()) });
     if (existingUser) {
       console.log("User already exists:", registerId);
       return res.status(400).json({ error: "User already exists" });
@@ -123,20 +126,21 @@ router.post("/register", async (req, res) => {
 router.post("/login", async (req, res) => {
   try {
     const { registerId, password, role, hostelBlock } = req.body;
-    console.log(`Login Attempt: ${registerId}, Role: ${role}, Hostel: ${hostelBlock}`);
+    const normalizedRegisterId = typeof registerId === "string" ? registerId.trim() : "";
+    console.log(`Login Attempt: ${normalizedRegisterId}, Role: ${role}, Hostel: ${hostelBlock}`);
 
-    if (!registerId || !password) {
+    if (!normalizedRegisterId || !password) {
       return res.status(400).json({ error: "Missing credentials" });
     }
 
-    const user = await User.findOne({ registerId });
+    const user = await User.findOne({ registerId: buildRegisterIdRegex(normalizedRegisterId) });
     if (!user) {
-      console.log(`User not found: ${registerId}`);
+      console.log(`User not found: ${normalizedRegisterId}`);
       return res.status(400).json({ error: "Invalid Register Number / Staff ID" });
     }
 
     if (role && user.role !== role) {
-      console.log(`Role mismatch for ${registerId}: expected ${role}, found ${user.role}`);
+      console.log(`Role mismatch for ${normalizedRegisterId}: expected ${role}, found ${user.role}`);
       return res.status(403).json({ error: "Role mismatch" });
     }
 
@@ -146,7 +150,7 @@ router.post("/login", async (req, res) => {
       const inputHostel = hostelBlock.trim().toLowerCase();
 
       if (dbHostel !== inputHostel) {
-        console.log(`Hostel mismatch for ${registerId}: Selected: ${hostelBlock}, Registered in: ${user.hostelBlock}`);
+        console.log(`Hostel mismatch for ${normalizedRegisterId}: Selected: ${hostelBlock}, Registered in: ${user.hostelBlock}`);
         return res.status(403).json({ error: `You are not registered in ${hostelBlock}. You are registered in ${user.hostelBlock}` });
       }
     }
@@ -166,7 +170,7 @@ router.post("/login", async (req, res) => {
       { expiresIn: "7d" }
     );
 
-    console.log(`✅ Login successful for ${registerId}, token: ${token.substring(0, 30)}...`);
+    console.log(`✅ Login successful for ${normalizedRegisterId}, token: ${token.substring(0, 30)}...`);
     console.log(`✅ Token secret: ${(process.env.JWT_SECRET as string).substring(0, 20)}...`);
 
     res.json({

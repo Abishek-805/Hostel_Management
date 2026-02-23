@@ -100,8 +100,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   /* ✅ LOGIN */
   const login = async (registerId: string, password: string, role?: string, hostelBlock?: string) => {
     try {
+      const normalizedRegisterId = registerId.trim();
       const response = await apiRequest("POST", "/auth/login", {
-        registerId,
+        registerId: normalizedRegisterId,
         password,
         role,
         hostelBlock,
@@ -113,7 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: false, error: data.error || "Login failed" };
       }
 
-      console.log(`✅ Login successful for ${registerId}, storing token and user`);
+      console.log(`✅ Login successful for ${normalizedRegisterId}, storing token and user`);
       await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(data.user));
       await AsyncStorage.setItem(AUTH_TOKEN_KEY, data.token);
       console.log(`✅ Token stored: ${data.token.substring(0, 20)}...`);
