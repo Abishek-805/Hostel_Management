@@ -239,8 +239,9 @@ function setupErrorHandler(app: express.Application) {
 
   setupErrorHandler(app);
 
-  const port = Number(process.env.PORT) || 5000;
-  server.listen({ port, host: "::" }, () => {
-    log(`✅ Server running on port ${port}`);
-  });
+const port = Number(process.env.PORT) || 5000;
+
+server.listen(port, "0.0.0.0", () => {
+  log(`✅ Server running on port ${port}`);
+});
 })();
