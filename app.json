@@ -8,12 +8,7 @@
     "scheme": "hostelease",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "updates": {
-      "enabled": false,
-      "fallbackToCacheTimeout": 0,
-      "checkOnLaunch": "never",
-      "url": null
-    },
+
     "runtimeVersion": "1.0.0",
     "ios": {
       "supportsTablet": true,
@@ -51,6 +46,11 @@
     ],
     "experiments": {
       "reactCompiler": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "da8e2772-36b7-4a9f-b43e-f6b3bda5a48e"
+      }
     }
   }
 }
