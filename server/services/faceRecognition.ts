@@ -1,6 +1,7 @@
 const faceapi = require('face-api.js');
 const canvas = require('canvas');
 const path = require('path');
+const fs = require('fs');
 const sharp = require('sharp');
 const { TextEncoder, TextDecoder } = require('util');
 
@@ -15,36 +16,63 @@ faceapi.env.monkeyPatch({
     TextDecoder,
 });
 
-const MODELS_PATH = path.join(__dirname, '../weights');
+const modelPath = path.resolve(process.cwd(), 'weights');
+const fallbackModelPath = path.resolve(process.cwd(), 'server', 'weights');
+
+function resolveModelPath(): string | null {
+    if (fs.existsSync(modelPath)) {
+        return modelPath;
+    }
+
+    if (fs.existsSync(fallbackModelPath)) {
+        return fallbackModelPath;
+    }
+
+    return null;
+}
 
 let modelsLoaded = false;
+let modelsAvailable = false;
+
+export const isFaceModelsAvailable = () => modelsAvailable;
 
 export const loadModels = async () => {
     if (modelsLoaded) {
         console.log("✅ Models already loaded");
         return;
     }
+
+    const activeModelPath = resolveModelPath();
+
+    if (!activeModelPath) {
+        modelsLoaded = false;
+        modelsAvailable = false;
+        console.warn("⚠️ FaceAPI weights folder not found. Checked:", modelPath, fallbackModelPath);
+        return;
+    }
+
     try {
-        console.log("📦 Loading FaceAPI models from:", MODELS_PATH);
+        console.log("📦 Loading FaceAPI models from:", activeModelPath);
 
         console.log("  → Loading SSD MobileNet v1...");
-        await faceapi.nets.ssdMobilenetv1.loadFromDisk(MODELS_PATH);
+        await faceapi.nets.ssdMobilenetv1.loadFromDisk(activeModelPath);
         console.log("    ✓ SSD MobileNet v1 loaded");
 
         console.log("  → Loading Face Landmark 68...");
-        await faceapi.nets.faceLandmark68Net.loadFromDisk(MODELS_PATH);
+        await faceapi.nets.faceLandmark68Net.loadFromDisk(activeModelPath);
         console.log("    ✓ Face Landmark 68 loaded");
 
         console.log("  → Loading Face Recognition...");
-        await faceapi.nets.faceRecognitionNet.loadFromDisk(MODELS_PATH);
+        await faceapi.nets.faceRecognitionNet.loadFromDisk(activeModelPath);
         console.log("    ✓ Face Recognition loaded");
 
         modelsLoaded = true;
+        modelsAvailable = true;
         console.log("✅ All FaceAPI models loaded successfully!");
     } catch (error) {
         console.error("❌ Error loading FaceAPI models:", error);
         modelsLoaded = false;
-        throw error;
+        modelsAvailable = false;
     }
 };
 
@@ -92,6 +120,10 @@ export function basicAntiSpoofCheck(detection: any) {
 export const getFaceEmbedding = async (imageBuffer: Buffer | string, timeoutMs: number = 8000): Promise<Float32Array> => {
     await loadModels();
 
+    if (!modelsAvailable) {
+        throw new Error("Face verification service is currently unavailable");
+    }
+
     // Create timeout promise to prevent hangs (8 second limit)
     const timeoutPromise = new Promise<never>((_, reject) => {
         setTimeout(() => reject(new Error('Face detection timeout - taking too long')), timeoutMs);
@@ -128,7 +160,12 @@ export const getFaceEmbedding = async (imageBuffer: Buffer | string, timeoutMs: 
         return detection.descriptor;
     })();
 
-    return await Promise.race([detectionPromise, timeoutPromise]);
+    try {
+        return await Promise.race([detectionPromise, timeoutPromise]);
+    } catch (error) {
+        console.error("❌ Error while generating face embedding:", error);
+        throw error;
+    }
 };
 
 export const calculateSimilarity = (embedding1: number[], embedding2: number[]): number => {

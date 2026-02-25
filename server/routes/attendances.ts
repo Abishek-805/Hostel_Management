@@ -440,7 +440,9 @@ router.post('/', authMiddleware, async (req, res) => {
           currentEmbedding = await getFaceEmbedding(sanitizedPhotoUrl);
         } catch (faceError: any) {
           console.log(`❌ Face detection/verification error: ${faceError.message}`);
-          return res.status(400).json({ error: faceError.message });
+          const message = faceError?.message || 'Face verification failed';
+          const statusCode = message.includes('currently unavailable') ? 503 : 400;
+          return res.status(statusCode).json({ error: message });
         }
         const faceElapsed = Date.now() - faceStartTime;
 

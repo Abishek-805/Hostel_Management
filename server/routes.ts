@@ -50,6 +50,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/food-polls", foodPollRoutes);
   app.use("/api/stats", statsRoutes);
 
+  app.get("/api/health", (_req, res) => {
+  res.json({
+    success: true,
+    message: "API is running 🚀"
+  });
+});
+
   const server = createServer(app);
   return server;
+
 }

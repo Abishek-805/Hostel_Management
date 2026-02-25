@@ -123,7 +123,9 @@ router.put('/:id', authMiddleware, async (req: any, res) => {
         console.log(`✅ Face embedding extracted successfully (${elapsed}ms): 128 dimensions`);
       } catch (error: any) {
         console.error('❌ Face extraction error:', error);
-        return res.status(400).json({ error: error.message || "Face processing error" });
+        const message = error?.message || "Face processing error";
+        const statusCode = message.includes("currently unavailable") ? 503 : 400;
+        return res.status(statusCode).json({ error: message });
       }
     }
 

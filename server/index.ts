@@ -4,9 +4,7 @@ import type { Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import * as fs from "fs";
 import * as path from "path";
-import dotenv from "dotenv";
-
-dotenv.config({ path: path.resolve(__dirname, "..", ".env") });
+import { APP_ORIGIN, isProduction } from "./config/env";
 
 const app = express();
 const log = console.log;
@@ -24,15 +22,24 @@ declare module "http" {
    ✅ CORS (FIXED)
 ========================= */
 function setupCors(app: express.Application) {
+  const allowedOrigins = new Set<string>([APP_ORIGIN]);
+
+  if (!isProduction) {
+    allowedOrigins.add("http://localhost:8081");
+    allowedOrigins.add("http://localhost:19006");
+    allowedOrigins.add("http://127.0.0.1:8081");
+  }
+
   app.use((req, res, next) => {
     const origin = req.headers.origin;
 
-    // Must be specific origin when credentials is true
-    if (origin) {
+    if (origin && (allowedOrigins.has(origin) || !isProduction)) {
       res.setHeader("Access-Control-Allow-Origin", origin);
     } else {
-      res.setHeader("Access-Control-Allow-Origin", "http://localhost:8081");
+      res.setHeader("Access-Control-Allow-Origin", APP_ORIGIN);
     }
+
+    res.setHeader("Vary", "Origin");
 
     res.setHeader(
       "Access-Control-Allow-Methods",

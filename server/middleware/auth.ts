@@ -1,4 +1,5 @@
 import jwt from "jsonwebtoken";
+import { JWT_SECRET } from "../config/env";
 
 export const authMiddleware = (req: any, res: any, next: any) => {
   const authHeader = req.headers.authorization;
@@ -11,7 +12,7 @@ export const authMiddleware = (req: any, res: any, next: any) => {
   try {
     console.log(`🟢 authMiddleware: Auth header found: ${authHeader.substring(0, 30)}...`);
     const token = authHeader.split(" ")[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!);
+    const decoded = jwt.verify(token, JWT_SECRET) as any;
     console.log(`✅ authMiddleware: Token verified for user ${decoded.id}, role: ${decoded.role}`);
     req.user = decoded;
     next();

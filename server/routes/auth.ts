@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import User from "../models/User";
 import Room from "../models/Room";
 import { authMiddleware } from "../middleware/auth";
+import { JWT_SECRET } from "../config/env";
 
 const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const buildRegisterIdRegex = (value: string) => new RegExp(`^\\s*${escapeRegex(value)}\\s*$`, "i");
@@ -16,7 +17,7 @@ const signToken = (user: any) => {
       role: user.role,
       hostelBlock: user.hostelBlock,
     },
-    process.env.JWT_SECRET as string,
+    JWT_SECRET,
     { expiresIn: "7d" }
   );
 };
@@ -166,12 +167,11 @@ router.post("/login", async (req, res) => {
         role: user.role,
         hostelBlock: user.hostelBlock, // ✅ IMPORTANT
       },
-      process.env.JWT_SECRET as string,
+      JWT_SECRET,
       { expiresIn: "7d" }
     );
 
     console.log(`✅ Login successful for ${normalizedRegisterId}, token: ${token.substring(0, 30)}...`);
-    console.log(`✅ Token secret: ${(process.env.JWT_SECRET as string).substring(0, 20)}...`);
 
     res.json({
       success: true,
@@ -270,7 +270,7 @@ router.post("/forgot-password/verify", async (req, res) => {
     // Generate a temporary reset token (valid for 15 minutes)
     const resetToken = jwt.sign(
       { id: user._id, registerId: user.registerId || user.hostelBlock },
-      process.env.JWT_SECRET as string,
+      JWT_SECRET,
       { expiresIn: "15m" }
     );
 
@@ -309,7 +309,7 @@ router.post("/forgot-password/reset", async (req, res) => {
     // Verify the reset token
     let decoded: any;
     try {
-      decoded = jwt.verify(resetToken, process.env.JWT_SECRET as string);
+      decoded = jwt.verify(resetToken, JWT_SECRET);
     } catch (err) {
       return res.status(400).json({ error: "Reset token expired or invalid" });
     }

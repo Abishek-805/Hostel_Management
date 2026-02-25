@@ -143,3 +143,59 @@ For production, use:
 - Use Docker Swarm or Kubernetes for orchestration
 - Configure CI/CD pipeline for automated builds
 
+---
+
+## Render Deployment (Recommended)
+
+Use this when deploying backend on Render instead of Docker runtime.
+
+### Build and Start Commands
+
+```bash
+npm run server:build
+npm run server:prod
+```
+
+`server:build` now bundles the server and syncs face recognition weights to `/weights`.
+
+### Required Environment Variables (Render)
+
+- `NODE_ENV=production`
+- `MONGODB_URI=<your_mongodb_atlas_connection_string>`
+- `JWT_SECRET=<strong_random_secret>`
+
+### Optional Environment Variables
+
+- `PORT` (Render injects this automatically)
+- `APP_ORIGIN=https://hostel-management-4el0.onrender.com`
+
+### Runtime Expectations
+
+- Server listens on `0.0.0.0` and `Number(process.env.PORT) || 5000`.
+- Dotenv is loaded only in development (not in production runtime).
+- App fails fast on startup with clear error if `MONGODB_URI` or `JWT_SECRET` is missing.
+
+### Face Recognition Weights on Render
+
+- Weights are expected at `weights/` (with fallback to `server/weights/`).
+- If weights are missing/corrupt, server does **not** crash.
+- Face endpoints return `503` (`Face verification service is currently unavailable`) until weights are available.
+
+### CORS / Mobile Compatibility
+
+- Production origin defaults to `https://hostel-management-4el0.onrender.com`.
+- Override with `APP_ORIGIN` if your frontend domain changes.
+- Preflight (`OPTIONS`) and credential headers are enabled for app clients.
+
+### Health Check Suggestion
+
+Configure Render Health Check Path to:
+
+```text
+/
+```
+
+Expected behavior:
+- Returns `200` when server is up.
+- If critical env vars are missing, service fails during startup and Render marks it unhealthy.
+

@@ -15,7 +15,7 @@ import { ThemedView } from "@/components/ThemedView";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/hooks/useTheme";
 import { Colors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
-import { getApiUrl } from "@/lib/query-client";
+import { buildApiUrl } from "@/config/api";
 import { FloatingBackground } from "@/components/FloatingBackground";
 import { BrandedLoadingOverlay } from "@/components/BrandedLoadingOverlay";
 
@@ -148,9 +148,8 @@ export default function ManageAttendanceScreen() {
   const handleExportExcel = async () => {
     try {
       setIsExporting(true);
-      const apiUrl = getApiUrl();
       const token = await AsyncStorage.getItem("@hostelease_token");
-      const exportUrl = `${apiUrl}/api/attendances/export-excel?t=${Date.now()}`;
+      const exportUrl = `${buildApiUrl("/attendances/export-excel")}?t=${Date.now()}`;
 
       if (Platform.OS === 'web') {
         const response = await fetch(exportUrl, {

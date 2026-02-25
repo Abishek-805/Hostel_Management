@@ -1,13 +1,8 @@
 import mongoose from 'mongoose';
-import dotenv from 'dotenv';
-import * as path from 'path';
-
-dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
-
-const MONGODB_URI = process.env.MONGODB_URI!;
+import { MONGODB_URI } from './config/env';
 
 if (!MONGODB_URI) {
-  throw new Error('Please define the MONGODB_URI environment variable inside .env');
+  throw new Error('Missing required environment variable: MONGODB_URI');
 }
 
 let cached = (global as any).mongoose;
