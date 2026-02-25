@@ -3202,6 +3202,12 @@ async function registerRoutes(app2) {
   app2.use("/api/meal-ratings", mealRatings_default);
   app2.use("/api/food-polls", foodPoll_default);
   app2.use("/api/stats", stats_default);
+  app2.get("/api/health", (_req, res) => {
+    res.json({
+      success: true,
+      message: "API is running \u{1F680}"
+    });
+  });
   const server = (0, import_node_http.createServer)(app2);
   return server;
 }
@@ -3212,18 +3218,10 @@ var path3 = __toESM(require("path"));
 var app = (0, import_express15.default)();
 var log = console.log;
 function setupCors(app2) {
-  const allowedOrigins = /* @__PURE__ */ new Set([APP_ORIGIN]);
-  if (!isProduction) {
-    allowedOrigins.add("http://localhost:8081");
-    allowedOrigins.add("http://localhost:19006");
-    allowedOrigins.add("http://127.0.0.1:8081");
-  }
   app2.use((req, res, next) => {
     const origin = req.headers.origin;
-    if (origin && (allowedOrigins.has(origin) || !isProduction)) {
+    if (origin) {
       res.setHeader("Access-Control-Allow-Origin", origin);
-    } else {
-      res.setHeader("Access-Control-Allow-Origin", APP_ORIGIN);
     }
     res.setHeader("Vary", "Origin");
     res.setHeader(
@@ -3232,12 +3230,11 @@ function setupCors(app2) {
     );
     res.setHeader(
       "Access-Control-Allow-Headers",
-      "Content-Type, Authorization, X-Requested-With"
+      "Content-Type, Authorization"
     );
     res.setHeader("Access-Control-Allow-Credentials", "true");
-    res.setHeader("Access-Control-Max-Age", "86400");
     if (req.method === "OPTIONS") {
-      return res.status(204).end();
+      return res.sendStatus(204);
     }
     next();
   });
