@@ -5,9 +5,27 @@ import { registerRoutes } from "./routes";
 import * as fs from "fs";
 import * as path from "path";
 import { APP_ORIGIN, isProduction } from "./config/env";
+import { validateEnvironment, logEnvironmentConfig } from "./config/validateEnv";
+import {
+  setupAllSecurityMiddleware,
+  setupErrorLogging,
+} from "./middleware/security";
 
 const app = express();
 const log = console.log;
+
+/* =========================
+   ENVIRONMENT VALIDATION
+========================= */
+let envConfig;
+try {
+  envConfig = validateEnvironment();
+  logEnvironmentConfig(envConfig);
+} catch (error) {
+  console.error("❌ Environment validation failed:");
+  console.error(error);
+  process.exit(1);
+}
 
 /* =========================
    RAW BODY SUPPORT
@@ -54,15 +72,15 @@ function setupCors(app: express.Application) {
 function setupBodyParsing(app: express.Application) {
   app.use(
     express.json({
-      limit: "50mb", // Support large base64 photos
+      limit: "20mb", // Support base64 photo uploads (10MB image ~= 13MB base64)
       verify: (req, _res, buf) => {
         req.rawBody = buf;
       },
     })
   );
 
-
-  app.use(express.urlencoded({ limit: "50mb", extended: false }));
+  // Separate limit for multipart/form-data (if using image upload routes)
+  app.use(express.urlencoded({ limit: "20mb", extended: false }));
 }
 
 /* =========================
@@ -212,30 +230,72 @@ function configureExpoAndLanding(app: express.Application) {
    ERROR HANDLER
 ========================= */
 function setupErrorHandler(app: express.Application) {
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-    res.status(status).json({ message });
-  });
+  app.use(setupErrorLogging());
 }
+
+/* =========================
+   GRACEFUL SHUTDOWN
+========================= */
+let server: any = null;
+
+async function gracefulShutdown(signal: string) {
+  console.log(`\n🛑 ${signal} received. Starting graceful shutdown...`);
+
+  if (server) {
+    server.close(async () => {
+      console.log("✅ Server closed");
+
+      // Close MongoDB connection
+      try {
+        const mongoose = require("mongoose");
+        if (mongoose.connection.readyState === 1) {
+          await mongoose.connection.close();
+          console.log("✅ MongoDB connection closed");
+        }
+      } catch (error) {
+        console.error("⚠️ Error closing MongoDB connection:", error);
+      }
+
+      console.log("✅ Graceful shutdown complete");
+      process.exit(0);
+    });
+
+    // Force shutdown after 10 seconds if graceful shutdown hangs
+    setTimeout(() => {
+      console.error("❌ Graceful shutdown timeout. Forcing exit.");
+      process.exit(1);
+    }, 10000);
+  } else {
+    process.exit(0);
+  }
+}
+
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 
 /* =========================
    BOOTSTRAP
 ========================= */
 (async () => {
-  setupCors(app);              // ✅ FIRST
+  // Security must be applied FIRST (before any other middleware)
+  setupAllSecurityMiddleware(app);
+
+  setupCors(app);              // ✅ AFTER security
   setupBodyParsing(app);
   setupRequestLogging(app);
 
   configureExpoAndLanding(app);
 
-  const server = await registerRoutes(app);
+  server = await registerRoutes(app);
 
   setupErrorHandler(app);
 
-const port = Number(process.env.PORT) || 5000;
-
-server.listen(port, "0.0.0.0", () => {
-  log(`✅ Server running on port ${port}`);
-});
+  const port = envConfig.port;
+  server.listen(port, "0.0.0.0", () => {
+    log(`✅ Server running on port ${port}`);
+    log(`🌍 Environment: ${envConfig.nodeEnv.toUpperCase()}`);
+    log(
+      `🔒 Security: Helmet enabled, Rate limiting: 100/15min, Timeout: 30s`
+    );
+  });
 })();

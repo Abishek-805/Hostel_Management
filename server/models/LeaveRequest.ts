@@ -30,5 +30,11 @@ const LeaveRequestSchema = new Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
+// Indexes for performance optimization
+LeaveRequestSchema.index({ userId: 1 });
+LeaveRequestSchema.index({ hostelBlock: 1 });
+LeaveRequestSchema.index({ status: 1 });
+LeaveRequestSchema.index({ createdAt: -1 });
+
 export default mongoose.models.LeaveRequest ||
   mongoose.model<ILeaveRequest>("LeaveRequest", LeaveRequestSchema);

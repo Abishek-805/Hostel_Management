@@ -37,4 +37,10 @@ const AttendanceSchema: Schema = new Schema({
   toObject: { virtuals: true }
 });
 
+// Indexes for performance optimization
+AttendanceSchema.index({ userId: 1, date: 1 });
+AttendanceSchema.index({ userId: 1 });
+AttendanceSchema.index({ date: 1 });
+AttendanceSchema.index({ userId: 1, date: -1 });
+
 export default mongoose.models.Attendance || mongoose.model<IAttendance>('Attendance', AttendanceSchema);

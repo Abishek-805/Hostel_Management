@@ -17,6 +17,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import Animated, {
   FadeInDown,
   FadeInRight,
@@ -166,8 +168,8 @@ export default function FoodPollScreen() {
 
       const blob = await res.blob();
 
-      // Create download link
       if (Platform.OS === "web") {
+        // Web: Direct browser download
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
@@ -176,6 +178,30 @@ export default function FoodPollScreen() {
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
+      } else {
+        // Mobile: Download to file system and share
+        const fileName = `poll-results-${pollId}.xlsx`;
+        const fileUri = (FileSystem as any).cacheDirectory + fileName;
+
+        // Convert blob to base64
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result?.toString().split(',')[1] || '');
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+
+        // Write file to cache directory
+        await FileSystem.writeAsStringAsync(fileUri, base64, {
+          encoding: 'base64' as any,
+        });
+
+        // Open share sheet if available, otherwise show success message
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(fileUri);
+        } else {
+          Alert.alert("Success", "Poll results exported as Excel file and saved to device.");
+        }
       }
 
       return blob;
@@ -183,7 +209,9 @@ export default function FoodPollScreen() {
     onSuccess: () => {
       Alert.alert(
         "Success",
-        "Poll results exported as Excel file and downloaded successfully!"
+        Platform.OS === "web"
+          ? "Poll results exported as Excel file and downloaded successfully!"
+          : "Poll results exported successfully!"
       );
     },
     onError: (error: any) => {

@@ -26,4 +26,10 @@ const ComplaintSchema: Schema = new Schema({
   updatedAt: { type: Date, default: Date.now },
 });
 
+// Indexes for performance optimization
+ComplaintSchema.index({ userId: 1 });
+ComplaintSchema.index({ hostelBlock: 1 });
+ComplaintSchema.index({ status: 1 });
+ComplaintSchema.index({ createdAt: -1 });
+
 export default mongoose.models.Complaint || mongoose.model<IComplaint>('Complaint', ComplaintSchema);

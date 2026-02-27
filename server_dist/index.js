@@ -64,6 +64,10 @@ var init_User = __esm({
       toJSON: { virtuals: true },
       toObject: { virtuals: true }
     });
+    UserSchema.index({ registerId: 1 });
+    UserSchema.index({ role: 1 });
+    UserSchema.index({ hostelBlock: 1 });
+    UserSchema.index({ role: 1, hostelBlock: 1 });
     User_default = import_mongoose2.default.models.User || import_mongoose2.default.model("User", UserSchema);
   }
 });
@@ -227,13 +231,13 @@ function basicAntiSpoofCheck(detection) {
     console.log(`\u2713 Face detected: ${faceSize.toFixed(0)}px, confidence: ${(score * 100).toFixed(1)}%`);
   }
 }
-var getFaceEmbedding = async (imageBuffer, timeoutMs = 8e3) => {
+var getFaceEmbedding = async (imageBuffer, timeoutMs = 6e3) => {
   await loadModels();
   if (!modelsAvailable) {
     throw new Error("Face verification service is currently unavailable");
   }
   const timeoutPromise = new Promise((_, reject) => {
-    setTimeout(() => reject(new Error("Face detection timeout - taking too long")), timeoutMs);
+    setTimeout(() => reject(new Error(`${timeoutMs}ms timeout exceeded`)), timeoutMs);
   });
   const detectionPromise = (async () => {
     let buffer;
@@ -754,6 +758,10 @@ var AttendanceSchema = new import_mongoose4.Schema({
   toJSON: { virtuals: true },
   toObject: { virtuals: true }
 });
+AttendanceSchema.index({ userId: 1, date: 1 });
+AttendanceSchema.index({ userId: 1 });
+AttendanceSchema.index({ date: 1 });
+AttendanceSchema.index({ userId: 1, date: -1 });
 var Attendance_default = import_mongoose4.default.models.Attendance || import_mongoose4.default.model("Attendance", AttendanceSchema);
 
 // server/routes/attendances.ts
@@ -793,10 +801,54 @@ var LeaveRequestSchema = new import_mongoose6.Schema({
   adminRemarks: { type: String },
   createdAt: { type: Date, default: Date.now }
 });
+LeaveRequestSchema.index({ userId: 1 });
+LeaveRequestSchema.index({ hostelBlock: 1 });
+LeaveRequestSchema.index({ status: 1 });
+LeaveRequestSchema.index({ createdAt: -1 });
 var LeaveRequest_default = import_mongoose6.default.models.LeaveRequest || import_mongoose6.default.model("LeaveRequest", LeaveRequestSchema);
 
 // server/routes/attendances.ts
 var import_exceljs = __toESM(require("exceljs"));
+
+// server/utils/timezone.ts
+var IST_OFFSET_HOURS = 5.5;
+function getCurrentTimeIST() {
+  const now = /* @__PURE__ */ new Date();
+  const istTime = new Date(now.getTime() + IST_OFFSET_HOURS * 60 * 60 * 1e3);
+  return istTime;
+}
+function getISTTimeComponents() {
+  const istTime = getCurrentTimeIST();
+  return {
+    hours: istTime.getUTCHours(),
+    minutes: istTime.getUTCMinutes(),
+    seconds: istTime.getUTCSeconds()
+  };
+}
+function getCurrentTimeHHMM() {
+  const { hours, minutes } = getISTTimeComponents();
+  return hours * 100 + minutes;
+}
+function validateAttendanceTimeWindow() {
+  const currentTimeHHMM = getCurrentTimeHHMM();
+  const { hours, minutes } = getISTTimeComponents();
+  let session = null;
+  if (currentTimeHHMM >= 700 && currentTimeHHMM < 1230) {
+    session = "morning";
+  } else if (currentTimeHHMM >= 1230 && currentTimeHHMM <= 1800) {
+    session = "afternoon";
+  }
+  const timeString = `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+  return {
+    allowed: session !== null,
+    session,
+    currentTime: timeString
+  };
+}
+function getFormattedISTTime() {
+  const { hours, minutes, seconds } = getISTTimeComponents();
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")} IST`;
+}
 
 // server/config/hostels.ts
 var VALLUVAR_CONFIG = {
@@ -1071,15 +1123,12 @@ router3.post("/", authMiddleware, async (req, res) => {
     }
     console.log(`\u{1F464} User fetched: ${user.name} (${user._id})`);
     console.log(`\u{1F464} Face Embedding Status: ${user.faceEmbedding ? "Present" : "Missing"}, Length: ${user.faceEmbedding?.length}`);
-    const now = /* @__PURE__ */ new Date();
-    const hours = now.getHours();
-    const minutes = now.getMinutes();
-    const currentTime = hours * 100 + minutes;
-    let session = null;
-    if (currentTime >= 700 && currentTime <= 1230) session = "morning";
-    else if (currentTime >= 1230 && currentTime <= 1800) session = "afternoon";
+    const { allowed, session, currentTime } = validateAttendanceTimeWindow();
+    console.log(`\u{1F550} IST Time: ${getFormattedISTTime()} | Allowed: ${allowed} | Session: ${session}`);
     if (!session && isPresent) {
-      return res.status(400).json({ error: "Attendance can only be marked between 07:00-12:30 PM and 12:30-06:00 PM." });
+      return res.status(400).json({
+        error: `Attendance can only be marked between 07:00 AM - 12:30 PM (Morning) or 12:30 PM - 06:00 PM (Afternoon). Current IST time: ${currentTime}.`
+      });
     }
     const attendanceDate = new Date(date);
     const startOfDay = new Date(attendanceDate);
@@ -1435,8 +1484,8 @@ router3.get("/export-excel", authMiddleware, async (req, res) => {
       { header: "Register ID", key: "id", width: 15 },
       { header: "Name", key: "name", width: 25 },
       { header: "Room", key: "room", width: 10 },
-      { header: "Morning (07:00-12:30)", key: "morning", width: 15 },
-      { header: "Afternoon (12:30)", key: "afternoon", width: 15 }
+      { header: "Morning (07:00-11:30)", key: "morning", width: 15 },
+      { header: "Afternoon (11:33-16:30)", key: "afternoon", width: 15 }
     ];
     const todayHeader = todayStatusSheet.getRow(1);
     todayHeader.font = { bold: true, color: { argb: "FFFFFFFF" } };
@@ -1598,6 +1647,10 @@ var ComplaintSchema = new import_mongoose7.Schema({
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });
+ComplaintSchema.index({ userId: 1 });
+ComplaintSchema.index({ hostelBlock: 1 });
+ComplaintSchema.index({ status: 1 });
+ComplaintSchema.index({ createdAt: -1 });
 var Complaint_default = import_mongoose7.default.models.Complaint || import_mongoose7.default.model("Complaint", ComplaintSchema);
 
 // server/routes/complaints.ts
@@ -3208,15 +3261,205 @@ async function registerRoutes(app2) {
       message: "API is running \u{1F680}"
     });
   });
-  const server = (0, import_node_http.createServer)(app2);
-  return server;
+  const server2 = (0, import_node_http.createServer)(app2);
+  return server2;
 }
 
 // server/index.ts
 var fs2 = __toESM(require("fs"));
 var path3 = __toESM(require("path"));
+
+// server/config/validateEnv.ts
+function validateEnvironment() {
+  const errors = [];
+  if (!process.env.MONGODB_URI) {
+    errors.push("MONGODB_URI - MongoDB connection string");
+  }
+  if (!process.env.JWT_SECRET) {
+    errors.push("JWT_SECRET - Secret key for JWT signing");
+  }
+  if (errors.length > 0) {
+    throw new Error(
+      `Missing required environment variables:
+${errors.map((e) => `  - ${e}`).join("\n")}
+
+Please set these variables in your .env file or environment.`
+    );
+  }
+  const config = {
+    nodeEnv: process.env.NODE_ENV || "development",
+    port: parseInt(process.env.PORT || "5000", 10),
+    mongoUri: process.env.MONGODB_URI,
+    jwtSecret: process.env.JWT_SECRET,
+    appOrigin: process.env.APP_ORIGIN || "https://hostel-management-4el0.onrender.com",
+    isProduction
+  };
+  if (isNaN(config.port) || config.port < 1 || config.port > 65535) {
+    throw new Error(
+      `Invalid PORT: ${process.env.PORT}. Port must be a number between 1 and 65535.`
+    );
+  }
+  return config;
+}
+function logEnvironmentConfig(config) {
+  console.log("\u{1F4CB} Environment Configuration:");
+  console.log(`   Node Environment: ${config.nodeEnv}`);
+  console.log(`   Port: ${config.port}`);
+  console.log(
+    `   MongoDB: ${config.mongoUri.substring(0, 30)}...${config.mongoUri.length > 30 ? "(hidden)" : ""}`
+  );
+  console.log(
+    `   JWT Secret: ${config.jwtSecret.length > 0 ? "\u2713 Set" : "\u2717 Not Set"}`
+  );
+  console.log(`   App Origin: ${config.appOrigin}`);
+  console.log(`   Production Mode: ${config.isProduction ? "\u2713" : "\u2717"}`);
+}
+
+// server/middleware/security.ts
+var import_helmet = __toESM(require("helmet"));
+var import_express_rate_limit = __toESM(require("express-rate-limit"));
+var import_morgan = __toESM(require("morgan"));
+function setupHelmet(app2) {
+  app2.use(
+    (0, import_helmet.default)({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          scriptSrc: ["'self'"],
+          imgSrc: ["'self'", "data:", "blob:"],
+          connectSrc: ["'self'", "https:"]
+        }
+      },
+      frameguard: { action: "deny" },
+      xssFilter: true,
+      noSniff: true,
+      referrerPolicy: { policy: "strict-origin-when-cross-origin" }
+    })
+  );
+}
+function setupRateLimiter(app2) {
+  const limiter = (0, import_express_rate_limit.default)({
+    windowMs: 15 * 60 * 1e3,
+    // 15 minutes
+    max: 100,
+    // 100 requests per windowMs
+    message: {
+      error: "Too many requests from this IP, please try again later.",
+      retryAfter: "15 minutes"
+    },
+    standardHeaders: true,
+    // Return rate limit info in `RateLimit-*` headers
+    legacyHeaders: false,
+    // Disable `X-RateLimit-*` headers
+    skip: (req) => {
+      return !req.path.startsWith("/api");
+    }
+  });
+  app2.use(limiter);
+}
+function setupSanitization(app2) {
+  app2.use((req, _res, next) => {
+    const sanitizeData = (data) => {
+      if (typeof data === "string") {
+        if (data.startsWith("$")) {
+          return "";
+        }
+        return data;
+      }
+      if (Array.isArray(data)) {
+        return data.map(sanitizeData);
+      }
+      if (typeof data === "object" && data !== null) {
+        const sanitized = {};
+        for (const key in data) {
+          if (!key.startsWith("$")) {
+            sanitized[key] = sanitizeData(data[key]);
+          }
+        }
+        return sanitized;
+      }
+      return data;
+    };
+    req.body = sanitizeData(req.body);
+    next();
+  });
+}
+function setupSecurityHeaders(app2) {
+  app2.use((req, res, next) => {
+    res.removeHeader("X-Powered-By");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("X-Frame-Options", "DENY");
+    res.setHeader("X-XSS-Protection", "1; mode=block");
+    const vary = res.getHeader("Vary");
+    if (vary) {
+      res.setHeader("Vary", `${vary}, Origin`);
+    } else {
+      res.setHeader("Vary", "Origin");
+    }
+    next();
+  });
+}
+function setupRequestTimeout(app2) {
+  const timeoutMs = 3e4;
+  app2.use((req, res, next) => {
+    const timeout = setTimeout(() => {
+      if (!res.headersSent) {
+        res.status(408).json({
+          error: "Request Timeout",
+          message: "The request took too long to process. Please try again."
+        });
+      }
+    }, timeoutMs);
+    res.on("finish", () => clearTimeout(timeout));
+    res.on("close", () => clearTimeout(timeout));
+    next();
+  });
+}
+function setupMorganLogger(app2) {
+  const morganFormat = isProduction ? ":remote-addr - :remote-user [:date[clf]] :method :url HTTP/:http-version :status :res[content-length] :response-time ms" : "dev";
+  app2.use((0, import_morgan.default)(morganFormat));
+}
+function setupErrorLogging() {
+  return (err, _req, res, _next) => {
+    const status = err.status || err.statusCode || 500;
+    const message = err.message || "Internal Server Error";
+    if (isProduction) {
+      console.error(`[ERROR ${status}] ${message}`);
+      res.status(status).json({
+        error: message,
+        ...status === 500 ? {} : { details: err.details }
+      });
+    } else {
+      console.error(err);
+      res.status(status).json({
+        error: message,
+        stack: err.stack
+      });
+    }
+  };
+}
+function setupAllSecurityMiddleware(app2) {
+  setupHelmet(app2);
+  setupSecurityHeaders(app2);
+  setupRateLimiter(app2);
+  setupSanitization(app2);
+  setupRequestTimeout(app2);
+  setupMorganLogger(app2);
+}
+
+// server/index.ts
 var app = (0, import_express15.default)();
 var log = console.log;
+var envConfig;
+try {
+  envConfig = validateEnvironment();
+  logEnvironmentConfig(envConfig);
+} catch (error) {
+  console.error("\u274C Environment validation failed:");
+  console.error(error);
+  process.exit(1);
+}
 function setupCors(app2) {
   app2.use((req, res, next) => {
     const origin = req.headers.origin;
@@ -3242,14 +3485,14 @@ function setupCors(app2) {
 function setupBodyParsing(app2) {
   app2.use(
     import_express15.default.json({
-      limit: "50mb",
-      // Support large base64 photos
+      limit: "20mb",
+      // Support base64 photo uploads (10MB image ~= 13MB base64)
       verify: (req, _res, buf) => {
         req.rawBody = buf;
       }
     })
   );
-  app2.use(import_express15.default.urlencoded({ limit: "50mb", extended: false }));
+  app2.use(import_express15.default.urlencoded({ limit: "20mb", extended: false }));
 }
 function setupRequestLogging(app2) {
   app2.use((req, res, next) => {
@@ -3346,21 +3589,51 @@ function configureExpoAndLanding(app2) {
   app2.use("/images", import_express15.default.static(path3.join(__dirname, "public", "menu")));
 }
 function setupErrorHandler(app2) {
-  app2.use((err, _req, res, _next) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-    res.status(status).json({ message });
-  });
+  app2.use(setupErrorLogging());
 }
+var server = null;
+async function gracefulShutdown(signal) {
+  console.log(`
+\u{1F6D1} ${signal} received. Starting graceful shutdown...`);
+  if (server) {
+    server.close(async () => {
+      console.log("\u2705 Server closed");
+      try {
+        const mongoose14 = require("mongoose");
+        if (mongoose14.connection.readyState === 1) {
+          await mongoose14.connection.close();
+          console.log("\u2705 MongoDB connection closed");
+        }
+      } catch (error) {
+        console.error("\u26A0\uFE0F Error closing MongoDB connection:", error);
+      }
+      console.log("\u2705 Graceful shutdown complete");
+      process.exit(0);
+    });
+    setTimeout(() => {
+      console.error("\u274C Graceful shutdown timeout. Forcing exit.");
+      process.exit(1);
+    }, 1e4);
+  } else {
+    process.exit(0);
+  }
+}
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 (async () => {
+  setupAllSecurityMiddleware(app);
   setupCors(app);
   setupBodyParsing(app);
   setupRequestLogging(app);
   configureExpoAndLanding(app);
-  const server = await registerRoutes(app);
+  server = await registerRoutes(app);
   setupErrorHandler(app);
-  const port = Number(process.env.PORT) || 5e3;
+  const port = envConfig.port;
   server.listen(port, "0.0.0.0", () => {
     log(`\u2705 Server running on port ${port}`);
+    log(`\u{1F30D} Environment: ${envConfig.nodeEnv.toUpperCase()}`);
+    log(
+      `\u{1F512} Security: Helmet enabled, Rate limiting: 100/15min, Timeout: 30s`
+    );
   });
 })();

@@ -37,4 +37,10 @@ const UserSchema = new Schema({
   toObject: { virtuals: true }
 });
 
+// Indexes for performance optimization
+UserSchema.index({ registerId: 1 });
+UserSchema.index({ role: 1 });
+UserSchema.index({ hostelBlock: 1 });
+UserSchema.index({ role: 1, hostelBlock: 1 });
+
 export default mongoose.models.User || mongoose.model<IUser>("User", UserSchema);
