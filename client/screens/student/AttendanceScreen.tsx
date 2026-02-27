@@ -80,8 +80,8 @@ const getCurrentSession = () => {
   const currentTime = hours * 100 + minutes;
 
   // Morning: 07:00 to 12:30
-  if (currentTime >= 700 && currentTime <= 1230) return 'morning';
-  // Afternoon: 12:30 to 18:00 (12:30 PM to 6:00 PM)
+  if (currentTime >= 700 && currentTime < 1230) return 'morning';
+  // Afternoon: 12:30 to 18:00 (6:00 PM)
   if (currentTime >= 1230 && currentTime <= 1800) return 'afternoon';
 
   return null;
@@ -105,8 +105,33 @@ export default function AttendanceScreen() {
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const cameraRef = useRef<CameraView>(null);
+  const hostelCloseButtonRef = useRef<View>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
 
   const hostelOptions = Object.keys(HOSTEL_LOCATIONS);
+
+  // Manage focus when modal opens/closes to prevent aria-hidden warnings
+  useEffect(() => {
+    if (showHostelPicker) {
+      // Save currently focused element
+      if (Platform.OS === 'web' && typeof document !== 'undefined') {
+        previousFocusRef.current = document.activeElement as HTMLElement;
+      }
+      // Move focus into the modal
+      setTimeout(() => {
+        if (hostelCloseButtonRef.current && Platform.OS === 'web') {
+          (hostelCloseButtonRef.current as any)?.focus?.();
+        }
+      }, 100);
+    } else {
+      // Restore focus when modal closes
+      if (Platform.OS === 'web' && previousFocusRef.current) {
+        setTimeout(() => {
+          previousFocusRef.current?.focus();
+        }, 100);
+      }
+    }
+  }, [showHostelPicker]);
 
   const { data: todayAttendanceData, isLoading } = useQuery({
     queryKey: ["attendance/check", user?.id || (user as any)?._id, new Date().toISOString().split('T')[0]],
@@ -354,25 +379,33 @@ export default function AttendanceScreen() {
       setProcessingStatus("🔐 Verifying face match...");
       console.log("🔍 Starting face verification...");
 
-      const res = await apiRequest("POST", "/api/attendance", {
-        userId: userId,
-        date: new Date().toISOString(),
-        isPresent: true,
-        photoUrl: data.photo,
-        latitude: data.location.coords.latitude.toString(),
-        longitude: data.location.coords.longitude.toString(),
-        selectedHostel: selectedHostel, // Pass the selected hostel for validation
-      });
+      try {
+        const res = await apiRequest("POST", "/api/attendance", {
+          userId: userId,
+          date: new Date().toISOString(),
+          isPresent: true,
+          photoUrl: data.photo,
+          latitude: data.location.coords.latitude.toString(),
+          longitude: data.location.coords.longitude.toString(),
+          selectedHostel: selectedHostel, // Pass the selected hostel for validation
+        });
 
-      const result = await res.json();
-      console.log("Server response:", result);
+        const result = await res.json();
+        console.log("Server response:", result);
 
-      if (!res.ok) {
-        throw new Error(result.error || "Failed to mark attendance");
+        if (!res.ok) {
+          throw new Error(result.error || "Failed to mark attendance");
+        }
+
+        setProcessingStatus("✅ Attendance verified!");
+        return result;
+      } catch (error: any) {
+        // Handle timeout errors from face verification
+        if (error.message && error.message.includes('timeout')) {
+          throw new Error('Face verification took too long. Please try again in good lighting and ensure your face is clearly visible.');
+        }
+        throw error;
       }
-
-      setProcessingStatus("✅ Attendance verified!");
-      return result;
     },
     onSuccess: (data) => {
       console.log("✅ Attendance marked successfully:", data);
@@ -738,26 +771,26 @@ export default function AttendanceScreen() {
             <View style={[styles.sessionItem, { backgroundColor: theme.backgroundSecondary }]}>
               <View style={[styles.sessionIcon, {
                 backgroundColor: todayAttendance?.morningMarked ? Colors.status.success + '20' :
-                  (new Date().getHours() >= 12 && new Date().getMinutes() >= 30 || new Date().getHours() > 12 ? Colors.status.error + '20' : Colors.status.warning + '20'),
+                  (new Date().getHours() > 11 || (new Date().getHours() === 11 && new Date().getMinutes() >= 30) ? Colors.status.error + '20' : Colors.status.warning + '20'),
                 overflow: 'hidden'
               }]}>
                 {todayAttendance?.morning?.photoUrl ? (
                   <Image source={{ uri: todayAttendance.morning.photoUrl }} style={StyleSheet.absoluteFill} />
                 ) : (
                   <Feather
-                    name={todayAttendance?.morningMarked ? "check" : (new Date().getHours() >= 12 && new Date().getMinutes() >= 30 || new Date().getHours() > 12 ? "x" : "hourglass")}
+                    name={todayAttendance?.morningMarked ? "check" : (new Date().getHours() > 11 || (new Date().getHours() === 11 && new Date().getMinutes() >= 30) ? "x" : "clock")}
                     size={24}
                     color={todayAttendance?.morningMarked ? Colors.status.success :
-                      (new Date().getHours() >= 12 && new Date().getMinutes() >= 30 || new Date().getHours() > 12 ? Colors.status.error : Colors.status.warning)}
+                      (new Date().getHours() > 11 || (new Date().getHours() === 11 && new Date().getMinutes() >= 30) ? Colors.status.error : Colors.status.warning)}
                   />
                 )}
                 {/* Small indicator overlay */}
                 <View style={[styles.statusIndicatorOverlay, {
                   backgroundColor: todayAttendance?.morningMarked ? Colors.status.success :
-                    (new Date().getHours() >= 12 && new Date().getMinutes() >= 30 || new Date().getHours() > 12 ? Colors.status.error : Colors.status.warning)
+                    (new Date().getHours() > 11 || (new Date().getHours() === 11 && new Date().getMinutes() >= 30) ? Colors.status.error : Colors.status.warning)
                 }]}>
                   <Feather
-                    name={todayAttendance?.morningMarked ? "check" : (new Date().getHours() >= 12 && new Date().getMinutes() >= 30 || new Date().getHours() > 12 ? "x" : "hourglass")}
+                    name={todayAttendance?.morningMarked ? "check" : (new Date().getHours() > 11 || (new Date().getHours() === 11 && new Date().getMinutes() >= 30) ? "x" : "clock")}
                     size={10}
                     color="#FFF"
                   />
@@ -766,9 +799,9 @@ export default function AttendanceScreen() {
               <ThemedText style={styles.sessionLabel}>Morning</ThemedText>
               <ThemedText style={[styles.sessionStatus, {
                 color: todayAttendance?.morningMarked ? Colors.status.success :
-                  (new Date().getHours() >= 9 ? Colors.status.error : theme.textSecondary)
+                  (new Date().getHours() > 12 || (new Date().getHours() === 12 && new Date().getMinutes() >= 30) ? Colors.status.error : theme.textSecondary)
               }]}>
-                {todayAttendance?.morningMarked ? "Present" : (new Date().getHours() >= 12 && new Date().getMinutes() >= 30 || new Date().getHours() > 12 ? "Absent" : "07:00-12:30")}
+                {todayAttendance?.morningMarked ? "Present" : (new Date().getHours() > 12 || (new Date().getHours() === 12 && new Date().getMinutes() >= 30) ? "Absent" : "07:00-12:30")}
               </ThemedText>
             </View>
 
@@ -776,26 +809,26 @@ export default function AttendanceScreen() {
             <View style={[styles.sessionItem, { backgroundColor: theme.backgroundSecondary }]}>
               <View style={[styles.sessionIcon, {
                 backgroundColor: todayAttendance?.afternoonMarked ? Colors.status.success + '20' :
-                  (new Date().getHours() >= 18 ? Colors.status.error + '20' : Colors.status.warning + '20'),
+                  (new Date().getHours() > 16 || (new Date().getHours() === 16 && new Date().getMinutes() >= 30) ? Colors.status.error + '20' : Colors.status.warning + '20'),
                 overflow: 'hidden'
               }]}>
                 {todayAttendance?.afternoon?.photoUrl ? (
                   <Image source={{ uri: todayAttendance.afternoon.photoUrl }} style={StyleSheet.absoluteFill} />
                 ) : (
                   <Feather
-                    name={todayAttendance?.afternoonMarked ? "check" : (new Date().getHours() >= 18 ? "x" : "hourglass")}
+                    name={todayAttendance?.afternoonMarked ? "check" : (new Date().getHours() > 16 || (new Date().getHours() === 16 && new Date().getMinutes() >= 30) ? "x" : "clock")}
                     size={24}
                     color={todayAttendance?.afternoonMarked ? Colors.status.success :
-                      (new Date().getHours() >= 18 ? Colors.status.error : Colors.status.warning)}
+                      (new Date().getHours() > 16 || (new Date().getHours() === 16 && new Date().getMinutes() >= 30) ? Colors.status.error : Colors.status.warning)}
                   />
                 )}
                 {/* Small indicator overlay */}
                 <View style={[styles.statusIndicatorOverlay, {
                   backgroundColor: todayAttendance?.afternoonMarked ? Colors.status.success :
-                    (new Date().getHours() >= 18 ? Colors.status.error : Colors.status.warning)
+                    (new Date().getHours() > 16 || (new Date().getHours() === 16 && new Date().getMinutes() >= 30) ? Colors.status.error : Colors.status.warning)
                 }]}>
                   <Feather
-                    name={todayAttendance?.afternoonMarked ? "check" : (new Date().getHours() >= 18 ? "x" : "hourglass")}
+                    name={todayAttendance?.afternoonMarked ? "check" : (new Date().getHours() > 16 || (new Date().getHours() === 16 && new Date().getMinutes() >= 30) ? "x" : "clock")}
                     size={10}
                     color="#FFF"
                   />
@@ -804,9 +837,9 @@ export default function AttendanceScreen() {
               <ThemedText style={styles.sessionLabel}>Afternoon</ThemedText>
               <ThemedText style={[styles.sessionStatus, {
                 color: todayAttendance?.afternoonMarked ? Colors.status.success :
-                  (new Date().getHours() >= 18 ? Colors.status.error : theme.textSecondary)
+                  (new Date().getHours() > 18 ? Colors.status.error : theme.textSecondary)
               }]}>
-                {todayAttendance?.afternoonMarked ? "Present" : (new Date().getHours() >= 18 ? "Absent" : "12:30-18:00")}
+                {todayAttendance?.afternoonMarked ? "Present" : (new Date().getHours() > 18 ? "Absent" : "12:30-18:00")}
               </ThemedText>
             </View>
           </View>
@@ -974,7 +1007,12 @@ export default function AttendanceScreen() {
           <View style={[styles.modalContent, { backgroundColor: theme.backgroundRoot }]}>
             <View style={styles.modalHeader}>
               <ThemedText type="h3">Select Hostel</ThemedText>
-              <Pressable onPress={() => setShowHostelPicker(false)}>
+              <Pressable 
+                ref={hostelCloseButtonRef}
+                onPress={() => setShowHostelPicker(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Close hostel picker"
+              >
                 <Feather name="x" size={24} color={theme.text} />
               </Pressable>
             </View>

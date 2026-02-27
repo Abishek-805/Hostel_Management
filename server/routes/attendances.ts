@@ -5,6 +5,7 @@ import HostelSettings from '../models/HostelSettings';
 import LeaveRequest from '../models/LeaveRequest';
 import { authMiddleware } from '../middleware/auth';
 import ExcelJS from 'exceljs';
+import { validateAttendanceTimeWindow, getFormattedISTTime } from '../utils/timezone';
 
 
 const router = express.Router();
@@ -344,18 +345,14 @@ router.post('/', authMiddleware, async (req, res) => {
     console.log(`👤 User fetched: ${user.name} (${user._id})`);
     console.log(`👤 Face Embedding Status: ${user.faceEmbedding ? 'Present' : 'Missing'}, Length: ${user.faceEmbedding?.length}`);
 
-    // Check for session
-    const now = new Date();
-    const hours = now.getHours();
-    const minutes = now.getMinutes();
-    const currentTime = hours * 100 + minutes;
-
-    let session: 'morning' | 'afternoon' | null = null;
-    if (currentTime >= 700 && currentTime <= 1230) session = 'morning';
-    else if (currentTime >= 1230 && currentTime <= 1800) session = 'afternoon';
+    // Check for session using IST (India Standard Time)
+    const { allowed, session, currentTime } = validateAttendanceTimeWindow();
+    console.log(`🕐 IST Time: ${getFormattedISTTime()} | Allowed: ${allowed} | Session: ${session}`);
 
     if (!session && isPresent) {
-      return res.status(400).json({ error: 'Attendance can only be marked between 07:00-12:30 PM and 12:30-06:00 PM.' });
+      return res.status(400).json({
+        error: `Attendance can only be marked between 07:00 AM - 12:30 PM (Morning) or 12:30 PM - 06:00 PM (Afternoon). Current IST time: ${currentTime}.`
+      });
     }
 
     // Check for existing attendance for this date and session
@@ -828,8 +825,8 @@ router.get('/export-excel', authMiddleware, async (req: any, res) => {
       { header: 'Register ID', key: 'id', width: 15 },
       { header: 'Name', key: 'name', width: 25 },
       { header: 'Room', key: 'room', width: 10 },
-      { header: 'Morning (07:00-12:30)', key: 'morning', width: 15 },
-      { header: 'Afternoon (12:30)', key: 'afternoon', width: 15 },
+      { header: 'Morning (07:00-11:30)', key: 'morning', width: 15 },
+      { header: 'Afternoon (11:33-16:30)', key: 'afternoon', width: 15 },
     ];
 
     const todayHeader = todayStatusSheet.getRow(1);

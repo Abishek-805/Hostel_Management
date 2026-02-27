@@ -117,16 +117,16 @@ export function basicAntiSpoofCheck(detection: any) {
     }
 }
 
-export const getFaceEmbedding = async (imageBuffer: Buffer | string, timeoutMs: number = 8000): Promise<Float32Array> => {
+export const getFaceEmbedding = async (imageBuffer: Buffer | string, timeoutMs: number = 6000): Promise<Float32Array> => {
     await loadModels();
 
     if (!modelsAvailable) {
         throw new Error("Face verification service is currently unavailable");
     }
 
-    // Create timeout promise to prevent hangs (8 second limit)
+    // Create timeout promise to prevent hangs (6 second limit, matching client-side expectations)
     const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Face detection timeout - taking too long')), timeoutMs);
+        setTimeout(() => reject(new Error(`${timeoutMs}ms timeout exceeded`)), timeoutMs);
     });
 
     const detectionPromise = (async () => {
