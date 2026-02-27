@@ -15,7 +15,8 @@ import { useTheme } from "@/hooks/useTheme";
 import { apiRequest, getQueryFn } from "@/lib/query-client";
 import { Colors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { FloatingBackground } from "@/components/FloatingBackground";
-import { BrandedLoadingOverlay } from "@/components/BrandedLoadingOverlay";
+import { LoadingOverlay } from "@/components/LoadingOverlay";
+import { EmptyState } from "@/components/EmptyState";
 
 type ComplaintCategory = "water" | "electricity" | "cleaning" | "food" | "others";
 type ComplaintStatus = "submitted" | "in_progress" | "resolved";
@@ -113,9 +114,8 @@ export default function ComplaintManagementScreen() {
       <FlatList data={filteredComplaints} keyExtractor={(item) => item.id || item._id} contentContainerStyle={[styles.listContent, { paddingBottom: tabBarHeight + 100 }]} showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary.main} />}
         ListEmptyComponent={() => (
-          <Animated.View entering={FadeInDown.delay(200)} style={[styles.emptyState, { backgroundColor: theme.backgroundDefault }]}>
-            <Feather name="check-circle" size={48} color={theme.textSecondary} />
-            <ThemedText type="body" secondary style={styles.emptyText}>No complaints found</ThemedText>
+          <Animated.View entering={FadeInDown.delay(200)}>
+            <EmptyState title="No complaints found" subtitle="New complaints will appear here." icon="check-circle" />
           </Animated.View>
         )}
         renderItem={({ item, index }) => (
@@ -288,7 +288,7 @@ export default function ComplaintManagementScreen() {
           </View>
         </View>
       </Modal>
-      <BrandedLoadingOverlay visible={isLoading} message="Fetching complaints..." icon="alert-circle" color={Colors.secondary.main} />
+      <LoadingOverlay visible={isLoading} message="Fetching complaints..." icon="alert-circle" color={Colors.secondary.main} />
     </ThemedView>
   );
 }

@@ -13,7 +13,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { Colors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { FloatingBackground } from "@/components/FloatingBackground";
 import { apiRequest } from "@/lib/query-client";
-import { BrandedLoadingOverlay } from "@/components/BrandedLoadingOverlay";
+import { LoadingOverlay } from "@/components/LoadingOverlay";
 
 interface Roommate {
     _id: string;
@@ -310,7 +310,14 @@ export default function RoomDetailsScreen() {
                                             </View>
                                         </View>
                                         {roommate.phone && (
-                                            <Pressable onPress={() => Linking.openURL(`tel:${roommate.phone}`)} style={{ padding: Spacing.sm }}>
+                                            <Pressable
+                                                onPress={() => Linking.openURL(`tel:${roommate.phone}`)}
+                                                style={{ padding: Spacing.sm }}
+                                                accessibilityRole="button"
+                                                accessibilityLabel={`Call ${roommate.name}`}
+                                                hitSlop={8}
+                                                android_ripple={{ color: "rgba(0,0,0,0.08)", borderless: true }}
+                                            >
                                                 <Feather name="phone" size={18} color={Colors.primary.main} />
                                             </Pressable>
                                         )}
@@ -349,14 +356,20 @@ export default function RoomDetailsScreen() {
                 </Pressable>
                 <View style={styles.helpBox}><Feather name="info" size={16} color={theme.textSecondary} /><ThemedText type="caption" secondary style={{ marginLeft: Spacing.sm, flex: 1 }}>For room-related issues, please file a complaint or contact the admin</ThemedText></View>
             </ScrollView>
-            <BrandedLoadingOverlay visible={isLoading} message="Fetching details..." icon="home" />
+            <LoadingOverlay visible={isLoading} message="Fetching details..." icon="home" />
 
             <Modal visible={showChangeModal} animationType="slide" transparent onRequestClose={() => { setShowChangeModal(false); Keyboard.dismiss(); }} accessibilityViewIsModal={true}>
                 <View style={styles.modalOverlay}>
                     <View style={[styles.modalContent, { backgroundColor: theme.backgroundRoot }]}>
                         <View style={styles.modalHeaderCustom}>
                             <ThemedText type="h3">Room Change Request</ThemedText>
-                            <Pressable onPress={() => { setShowChangeModal(false); Keyboard.dismiss(); }}><Feather name="x" size={24} color={theme.text} /></Pressable>
+                            <Pressable
+                                onPress={() => { setShowChangeModal(false); Keyboard.dismiss(); }}
+                                accessibilityRole="button"
+                                accessibilityLabel="Close room change request"
+                                hitSlop={10}
+                                android_ripple={{ color: "rgba(0,0,0,0.08)", borderless: true }}
+                            ><Feather name="x" size={24} color={theme.text} /></Pressable>
                         </View>
                         <View style={styles.modalForm}>
                             <ThemedText type="bodySmall" secondary style={styles.label}>Requested Room (Optional)</ThemedText>

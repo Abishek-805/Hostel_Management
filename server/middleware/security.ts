@@ -46,8 +46,8 @@ export function setupRateLimiter(app: express.Application) {
     standardHeaders: true, // Return rate limit info in `RateLimit-*` headers
     legacyHeaders: false, // Disable `X-RateLimit-*` headers
     skip: (req: Request) => {
-      // Skip rate limiting for non-API routes and health checks
-      return !req.path.startsWith("/api");
+      // Skip rate limiting for non-API routes and CORS preflight
+      return !req.path.startsWith("/api") || req.method === "OPTIONS";
     },
   });
 

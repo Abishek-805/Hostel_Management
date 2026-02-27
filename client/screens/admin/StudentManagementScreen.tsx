@@ -11,7 +11,8 @@ import { ThemedView } from "@/components/ThemedView";
 import { useTheme } from "@/hooks/useTheme";
 import { Colors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { FloatingBackground } from "@/components/FloatingBackground";
-import { BrandedLoadingOverlay } from "@/components/BrandedLoadingOverlay";
+import { LoadingOverlay } from "@/components/LoadingOverlay";
+import { EmptyState } from "@/components/EmptyState";
 
 export default function StudentManagementScreen() {
     const { theme } = useTheme();
@@ -106,7 +107,13 @@ export default function StudentManagementScreen() {
                         autoFocus={false}
                     />
                     {searchQuery.length > 0 && (
-                        <Pressable onPress={() => setSearchQuery("")}>
+                        <Pressable
+                            onPress={() => setSearchQuery("")}
+                            accessibilityRole="button"
+                            accessibilityLabel="Clear search"
+                            hitSlop={8}
+                            android_ripple={{ color: "rgba(0,0,0,0.08)", borderless: true }}
+                        >
                             <Feather name="x-circle" size={18} color={theme.textSecondary} />
                         </Pressable>
                     )}
@@ -125,15 +132,12 @@ export default function StudentManagementScreen() {
                 }
                 ListEmptyComponent={
                     !isLoading ? (
-                        <View style={styles.emptyState}>
-                            <Feather name="users" size={48} color={theme.textSecondary + '40'} />
-                            <ThemedText type="body" secondary style={{ marginTop: 12 }}>No students found</ThemedText>
-                        </View>
+                        <EmptyState title="No students found" subtitle="Try changing the search query." icon="users" />
                     ) : null
                 }
             />
 
-            <BrandedLoadingOverlay visible={isLoading && !isRefetching} message="Fetching student roster..." icon="users" color={Colors.primary.main} />
+            <LoadingOverlay visible={isLoading && !isRefetching} message="Fetching student roster..." icon="users" color={Colors.primary.main} />
         </ThemedView>
     );
 }

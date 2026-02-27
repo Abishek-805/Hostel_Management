@@ -9,7 +9,7 @@ import { Feather } from "@expo/vector-icons";
 import Animated, { FadeInDown, FadeInRight, useSharedValue, withRepeat, withTiming, useAnimatedStyle, Easing } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FloatingBackground } from "@/components/FloatingBackground";
-import { BrandedLoadingOverlay } from "@/components/BrandedLoadingOverlay";
+import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { useAuth } from "@/contexts/AuthContext";
@@ -215,9 +215,14 @@ export default function AdminDashboardScreen() {
       </ScrollView>
 
       <Modal visible={showNotifications} animationType="fade" transparent onRequestClose={() => setShowNotifications(false)} accessibilityViewIsModal={true}>
-        <Pressable style={styles.modalOverlay} onPress={() => setShowNotifications(false)}>
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setShowNotifications(false)}
+          accessibilityRole="button"
+          accessibilityLabel="Close notifications"
+        >
           <Animated.View entering={FadeInDown.springify()} style={[styles.notificationPopup, { backgroundColor: theme.backgroundSecondary, top: insets.top + 60 }]}>
-            <View style={styles.popupHeader}><ThemedText type="h3">Notifications</ThemedText><Pressable onPress={() => setShowNotifications(false)}><Feather name="x" size={20} color={theme.text} /></Pressable></View>
+            <View style={styles.popupHeader}><ThemedText type="h3">Notifications</ThemedText><Pressable onPress={() => setShowNotifications(false)} accessibilityRole="button" accessibilityLabel="Close notifications panel" hitSlop={10} android_ripple={{ color: "rgba(0,0,0,0.08)", borderless: true }}><Feather name="x" size={20} color={theme.text} /></Pressable></View>
             {hasNotifications ? (
               <View style={{ gap: 12 }}>
                 {adminStats.pendingLeaveCount > 0 && (<Pressable style={[styles.notifItem, { backgroundColor: Colors.status.warning + '10' }]} onPress={() => { setShowNotifications(false); navigation.getParent()?.navigate("ApprovalsTab"); }}><Feather name="clock" size={20} color={Colors.status.warning} /><View style={{ flex: 1 }}><ThemedText type="bodySmall" style={{ fontWeight: '600' }}>Pending Leave Requests</ThemedText><ThemedText type="caption" secondary>{adminStats.pendingLeaveCount} students waiting for approval</ThemedText></View><Feather name="chevron-right" size={16} color={theme.textSecondary} /></Pressable>)}
@@ -235,7 +240,7 @@ export default function AdminDashboardScreen() {
           </Animated.View>
         </Pressable>
       </Modal>
-      <BrandedLoadingOverlay visible={isLoading} message="Loading admin center..." icon="shield" color={Colors.secondary.main} />
+      <LoadingOverlay visible={isLoading} message="Loading admin center..." icon="shield" color={Colors.secondary.main} />
     </ThemedView>
   );
 }

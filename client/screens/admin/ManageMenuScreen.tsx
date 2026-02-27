@@ -17,7 +17,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { apiRequest } from "@/lib/query-client";
 import { Colors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { FloatingBackground } from "@/components/FloatingBackground";
-import { BrandedLoadingOverlay } from "@/components/BrandedLoadingOverlay";
+import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { AdminStackParamList } from "@/navigation/AdminTabNavigator";
 
 type MealType = "breakfast" | "lunch" | "dinner";
@@ -529,7 +529,7 @@ export default function ManageMenuScreen() {
           </View>
         </View>
       </Modal>
-      <BrandedLoadingOverlay visible={isLoading || isSubmitting} message={isSubmitting ? "Updating menus..." : "Fetching menu details..."} icon="coffee" color={Colors.secondary.main} />
+      <LoadingOverlay visible={isLoading || isSubmitting} message={isSubmitting ? "Updating menus..." : "Fetching menu details..."} icon="coffee" color={Colors.secondary.main} />
     </ThemedView>
   );
 }

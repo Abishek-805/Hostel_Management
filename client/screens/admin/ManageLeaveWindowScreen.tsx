@@ -13,7 +13,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { apiRequest, getQueryFn } from "@/lib/query-client";
 import { Colors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { FloatingBackground } from "@/components/FloatingBackground";
-import { BrandedLoadingOverlay } from "@/components/BrandedLoadingOverlay";
+import { LoadingOverlay } from "@/components/LoadingOverlay";
 
 export default function ManageLeaveWindowScreen() {
     const headerHeight = useHeaderHeight();
@@ -85,7 +85,7 @@ export default function ManageLeaveWindowScreen() {
     return (
         <ThemedView style={styles.container}>
             <FloatingBackground primaryColor={Colors.secondary.main} secondaryColor={Colors.primary.main} />
-            <BrandedLoadingOverlay visible={isLoading} message="Fetching settings..." icon="settings" color={Colors.secondary.main} />
+            <LoadingOverlay visible={isLoading} message="Fetching settings..." icon="settings" color={Colors.secondary.main} />
 
             {!isLoading && (
                 <ScrollView contentContainerStyle={[styles.scrollContent, { paddingTop: headerHeight + Spacing.lg, paddingBottom: tabBarHeight + 100 }]}>

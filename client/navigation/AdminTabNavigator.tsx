@@ -1,7 +1,7 @@
 import React from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { useNavigation, getFocusedRouteNameFromRoute } from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
 import { HeaderBackButton } from "@react-navigation/elements";
 import { Feather } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
@@ -63,12 +63,10 @@ function BackToHomeButton({ pointerEvents, canGoBack, label, tintColor, style, .
       style={[style, pointerEvents && { pointerEvents }]}
       {...props}
       onPress={() => {
-        // Check if we can go back in the current stack
-        if (canGoBack) {
+        if (navigation.canGoBack()) {
           navigation.goBack();
         } else {
-          // If no back history, go to home
-          navigation.navigate("HomeTab", { screen: "Dashboard" });
+          navigation.getParent()?.navigate("HomeTab", { screen: "Dashboard" });
         }
       }}
     />
@@ -227,17 +225,6 @@ function ProfileStack() {
 export default function AdminTabNavigator() {
   const { theme, isDark } = useTheme();
 
-  const getTabBarVisibility = (route: any) => {
-    const routeName = getFocusedRouteNameFromRoute(route);
-    // Hide tab bar only on Profile screen
-    if (
-      routeName === "Profile"
-    ) {
-      return "none";
-    }
-    return "flex";
-  };
-
   return (
     <Tab.Navigator
       initialRouteName="HomeTab"
@@ -269,31 +256,28 @@ export default function AdminTabNavigator() {
       <Tab.Screen
         name="HomeTab"
         component={HomeStack}
-        options={({ route }) => ({
+        options={{
           title: "Home",
-          tabBarStyle: { display: getTabBarVisibility(route) },
           tabBarIcon: ({ color, size }) => (
             <Feather name="home" size={size} color={color} />
           ),
-        })}
+        }}
       />
       <Tab.Screen
         name="ManageTab"
         component={ManageStack}
-        options={({ route }) => ({
+        options={{
           title: "Manage",
-          tabBarStyle: { display: getTabBarVisibility(route) },
           tabBarIcon: ({ color, size }) => (
             <Feather name="settings" size={size} color={color} />
           ),
-        })}
+        }}
       />
       <Tab.Screen
         name="AttendanceTab"
         component={AttendanceStack}
-        options={({ route }) => ({
+        options={{
           title: "Attendance",
-          tabBarStyle: { display: getTabBarVisibility(route) },
           tabBarIcon: ({ color, focused }) => (
             <View
               style={[
@@ -305,29 +289,27 @@ export default function AdminTabNavigator() {
             </View>
           ),
           tabBarLabel: () => null,
-        })}
+        }}
       />
       <Tab.Screen
         name="ApprovalsTab"
         component={ApprovalsStack}
-        options={({ route }) => ({
+        options={{
           title: "Approvals",
-          tabBarStyle: { display: getTabBarVisibility(route) },
           tabBarIcon: ({ color, size }) => (
             <Feather name="clipboard" size={size} color={color} />
           ),
-        })}
+        }}
       />
       <Tab.Screen
         name="ProfileTab"
         component={ProfileStack}
-        options={({ route }) => ({
+        options={{
           title: "Profile",
-          tabBarStyle: { display: getTabBarVisibility(route) },
           tabBarIcon: ({ color, size }) => (
             <Feather name="user" size={size} color={color} />
           ),
-        })}
+        }}
       />
     </Tab.Navigator>
   );

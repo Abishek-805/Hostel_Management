@@ -12,7 +12,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/contexts/AuthContext";
 import { Colors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { FloatingBackground } from "@/components/FloatingBackground";
-import { BrandedLoadingOverlay } from "@/components/BrandedLoadingOverlay";
+import { LoadingOverlay } from "@/components/LoadingOverlay";
 
 export default function MealAnalyticsScreen() {
     const headerHeight = useHeaderHeight();
@@ -96,7 +96,7 @@ export default function MealAnalyticsScreen() {
 
             </ScrollView>
 
-            <BrandedLoadingOverlay visible={isLoading} message="Analyzing feedback..." icon="trending-up" />
+            <LoadingOverlay visible={isLoading} message="Analyzing feedback..." icon="trending-up" />
         </ThemedView>
     );
 }

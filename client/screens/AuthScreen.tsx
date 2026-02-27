@@ -23,7 +23,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Colors, Spacing, BorderRadius, Typography, Shadows } from "@/constants/theme";
 import { HOSTEL_BLOCKS, HOSTEL_CODES } from "@/constants/hostels";
 import { FloatingBackground } from "@/components/FloatingBackground";
-import { BrandedLoadingOverlay } from "@/components/BrandedLoadingOverlay";
+import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { apiRequest } from "@/lib/query-client";
 
 const { width } = Dimensions.get('window');
@@ -547,7 +547,14 @@ export default function AuthScreen() {
                 }}
                 secureTextEntry={!showPassword}
               />
-              <Pressable onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
+              <Pressable
+                onPress={() => setShowPassword(!showPassword)}
+                style={styles.eyeIcon}
+                accessibilityRole="button"
+                accessibilityLabel={showPassword ? "Hide password" : "Show password"}
+                hitSlop={8}
+                android_ripple={{ color: "rgba(0,0,0,0.08)", borderless: true }}
+              >
                 <Feather name={showPassword ? "eye" : "eye-off"} size={20} color="#6B7280" />
               </Pressable>
             </View>
@@ -640,7 +647,7 @@ export default function AuthScreen() {
         </Animated.View>
       </KeyboardAwareScrollViewCompat>
 
-      <BrandedLoadingOverlay
+      <LoadingOverlay
         visible={isLoading}
         message={mode === 'login' ? 'Signing you in...' : 'Creating account...'}
         icon="home"
@@ -657,7 +664,13 @@ export default function AuthScreen() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <ThemedText type="h3">Select Hostel Block</ThemedText>
-              <Pressable onPress={() => setShowHostelModal(false)}>
+              <Pressable
+                onPress={() => setShowHostelModal(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Close hostel selector"
+                hitSlop={10}
+                android_ripple={{ color: "rgba(0,0,0,0.08)", borderless: true }}
+              >
                 <Feather name="x" size={24} color="#000" />
               </Pressable>
             </View>
@@ -699,7 +712,13 @@ export default function AuthScreen() {
           <View style={[styles.modalContent, { maxHeight: '85%', zIndex: 1000 }]}>
             <View style={styles.modalHeader}>
               <ThemedText type="h3">Reset Password</ThemedText>
-              <Pressable onPress={closeForgotModal}>
+              <Pressable
+                onPress={closeForgotModal}
+                accessibilityRole="button"
+                accessibilityLabel="Close reset password"
+                hitSlop={10}
+                android_ripple={{ color: "rgba(0,0,0,0.08)", borderless: true }}
+              >
                 <Feather name="x" size={24} color="#000" />
               </Pressable>
             </View>

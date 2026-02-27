@@ -53,12 +53,10 @@ function BackToHomeButton({ pointerEvents, canGoBack, label, tintColor, style, .
       style={[style, pointerEvents && { pointerEvents }]}
       {...props}
       onPress={() => {
-        // Check if we can go back in the current stack
-        if (canGoBack) {
+        if (navigation.canGoBack()) {
           navigation.goBack();
         } else {
-          // If no back history, go to home
-          navigation.navigate("HomeTab", { screen: "Dashboard" });
+          navigation.getParent()?.navigate("HomeTab", { screen: "Dashboard" });
         }
       }}
     />

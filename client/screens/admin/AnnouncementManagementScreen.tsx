@@ -15,7 +15,8 @@ import { useTheme } from "@/hooks/useTheme";
 import { apiRequest, getQueryFn } from "@/lib/query-client";
 import { Colors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { FloatingBackground } from "@/components/FloatingBackground";
-import { BrandedLoadingOverlay } from "@/components/BrandedLoadingOverlay";
+import { LoadingOverlay } from "@/components/LoadingOverlay";
+import { EmptyState } from "@/components/EmptyState";
 import { TimeAgo } from "@/components/TimeAgo";
 
 // Blinking Dot for Urgency
@@ -76,16 +77,16 @@ export default function AnnouncementManagementScreen() {
       <FlatList
         data={announcements as any[]}
         keyExtractor={(item) => item.id || item._id}
+        removeClippedSubviews
         contentContainerStyle={[styles.listContent, { paddingTop: headerHeight + Spacing.lg, paddingBottom: tabBarHeight + 100 }]}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <ThemedText type="h3" style={{ marginBottom: Spacing.md }}>All Announcements</ThemedText>
         }
         ListEmptyComponent={() => (
-          <Animated.View entering={FadeInDown.delay(200)} style={[styles.emptyState, { backgroundColor: theme.backgroundSecondary }]}>
-            <Feather name="bell-off" size={48} color={theme.textSecondary} style={{ opacity: 0.5 }} />
-            <ThemedText type="body" style={{ color: theme.textSecondary, marginTop: Spacing.md }}>No announcements yet</ThemedText>
-            <Button variant="outline" onPress={() => setShowModal(true)} style={{ marginTop: Spacing.lg }}>Create First One</Button>
+          <Animated.View entering={FadeInDown.delay(200)}>
+            <EmptyState title="No announcements yet" subtitle="Create your first announcement." icon="bell-off" />
+            <Button variant="outline" onPress={() => setShowModal(true)} style={{ marginTop: Spacing.lg }} accessibilityLabel="Create first announcement">Create First One</Button>
           </Animated.View>
         )}
         renderItem={({ item, index }) => (
@@ -124,7 +125,14 @@ export default function AnnouncementManagementScreen() {
         )}
       />
 
-      <Pressable style={[styles.fab, { backgroundColor: Colors.primary.main }]} onPress={() => setShowModal(true)}>
+      <Pressable
+        style={[styles.fab, { backgroundColor: Colors.primary.main }]}
+        onPress={() => setShowModal(true)}
+        accessibilityRole="button"
+        accessibilityLabel="Create announcement"
+        hitSlop={8}
+        android_ripple={{ color: "rgba(255,255,255,0.2)", borderless: true }}
+      >
         <Feather name="plus" size={24} color="#FFFFFF" />
       </Pressable>
 
@@ -169,7 +177,7 @@ export default function AnnouncementManagementScreen() {
           </View>
         </View>
       </Modal>
-      <BrandedLoadingOverlay visible={isLoading} message="Fetching announcements..." icon="bell" color={Colors.secondary.main} />
+      <LoadingOverlay visible={isLoading} message="Fetching announcements..." icon="bell" color={Colors.secondary.main} />
     </ThemedView>
   );
 }

@@ -13,7 +13,8 @@ import { useTheme } from "@/hooks/useTheme";
 import { apiRequest, getQueryFn } from "@/lib/query-client";
 import { Colors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { FloatingBackground } from "@/components/FloatingBackground";
-import { BrandedLoadingOverlay } from "@/components/BrandedLoadingOverlay";
+import { LoadingOverlay } from "@/components/LoadingOverlay";
+import { EmptyState } from "@/components/EmptyState";
 
 type FilterTab = "all" | "pending" | "approved" | "rejected";
 
@@ -154,15 +155,11 @@ export default function LeaveApprovalsScreen() {
       <FlatList
         data={filteredRequests}
         keyExtractor={(item) => item._id}
+        removeClippedSubviews
         contentContainerStyle={[styles.listContent, { paddingBottom: tabBarHeight + 100 }]}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={() => (
-          <View style={styles.emptyState}>
-            <View style={[styles.emptyIcon, { backgroundColor: theme.backgroundSecondary }]}>
-              <Feather name="inbox" size={32} color={theme.textSecondary} />
-            </View>
-            <ThemedText type="body" secondary style={styles.emptyText}>No requests found</ThemedText>
-          </View>
+          <EmptyState title="No requests found" subtitle="New leave requests will appear here." icon="inbox" />
         )}
         renderItem={({ item }) => {
           const studentName = typeof item.userId === 'object' ? item.userId.name : item.userId;
@@ -343,7 +340,7 @@ export default function LeaveApprovalsScreen() {
           </View>
         </View>
       </Modal>
-      <BrandedLoadingOverlay visible={isLoading} message="Fetching leave requests..." icon="clock" color={Colors.secondary.main} />
+      <LoadingOverlay visible={isLoading} message="Fetching leave requests..." icon="clock" color={Colors.secondary.main} />
     </ThemedView>
   );
 }

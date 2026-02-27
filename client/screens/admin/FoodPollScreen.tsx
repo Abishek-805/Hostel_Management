@@ -39,7 +39,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { apiRequest } from "@/lib/query-client";
 import { Colors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { FloatingBackground } from "@/components/FloatingBackground";
-import { BrandedLoadingOverlay } from "@/components/BrandedLoadingOverlay";
+import { LoadingOverlay } from "@/components/LoadingOverlay";
+import { EmptyState } from "@/components/EmptyState";
 import { AdminStackParamList } from "@/navigation/AdminTabNavigator";
 
 type NavigationProp = NativeStackNavigationProp<AdminStackParamList>;
@@ -481,7 +482,7 @@ export default function FoodPollScreen() {
             ]}
             showsVerticalScrollIndicator={false}
           >
-            <BrandedLoadingOverlay
+            <LoadingOverlay
               visible={true}
               message="Loading poll details..."
               icon="bar-chart-2"
@@ -748,7 +749,7 @@ export default function FoodPollScreen() {
           )}
         </ScrollView>
 
-        <BrandedLoadingOverlay
+        <LoadingOverlay
           visible={voteMutation.isPending || exportPollMutation.isPending || closePollMutation.isPending}
           message={
             voteMutation.isPending ? "Recording vote..." :
@@ -809,21 +810,8 @@ export default function FoodPollScreen() {
               .map((poll: Poll, index: number) => renderPollItem(poll, index))}
           </View>
         ) : (
-          <Animated.View
-            entering={FadeInDown.delay(200)}
-            style={[
-              styles.emptyState,
-              { backgroundColor: theme.backgroundDefault },
-            ]}
-          >
-            <Feather
-              name="bar-chart-2"
-              size={48}
-              color={theme.textSecondary}
-            />
-            <ThemedText type="body" secondary style={styles.emptyText}>
-              No active polls yet
-            </ThemedText>
+          <Animated.View entering={FadeInDown.delay(200)}>
+            <EmptyState title="No active polls yet" subtitle="Create the first poll to collect meal preferences." icon="bar-chart-2" />
             {user?.role === "admin" && (
               <Button
                 variant="outline"
@@ -1110,7 +1098,7 @@ export default function FoodPollScreen() {
         </View>
       </Modal>
 
-      <BrandedLoadingOverlay
+      <LoadingOverlay
         visible={isLoading || createPollMutation.isPending}
         message={
           isLoading

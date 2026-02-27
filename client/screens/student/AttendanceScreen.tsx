@@ -17,7 +17,7 @@ import { apiRequest, getQueryFn } from "@/lib/query-client";
 import { Colors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 
 import { HOSTEL_LOCATIONS, HostelBoundary } from "@/constants/hostels";
-import { BrandedLoadingOverlay } from "@/components/BrandedLoadingOverlay";
+import { LoadingOverlay } from "@/components/LoadingOverlay";
 
 const { width } = Dimensions.get('window');
 
@@ -1091,7 +1091,7 @@ export default function AttendanceScreen() {
           </View>
         </View>
       </Modal>
-      <BrandedLoadingOverlay visible={isProcessing} message={processingStatus || "Verifying attendance..."} icon="check-circle" />
+      <LoadingOverlay visible={isProcessing} message={processingStatus || "Verifying attendance..."} icon="check-circle" />
     </ThemedView >
   );
 }

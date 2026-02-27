@@ -18,7 +18,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { apiRequest } from "@/lib/query-client";
 import { Colors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { FloatingBackground } from "@/components/FloatingBackground";
-import { BrandedLoadingOverlay } from "@/components/BrandedLoadingOverlay";
+import { LoadingOverlay } from "@/components/LoadingOverlay";
 
 type ComplaintCategory = "water" | "electricity" | "cleaning" | "food" | "others";
 type ComplaintStatus = "submitted" | "in_progress" | "resolved";
@@ -295,7 +295,13 @@ export default function ComplaintsScreen() {
           <View style={[styles.modalContent, { backgroundColor: theme.backgroundRoot }]}>
             <View style={styles.modalHeader}>
               <ThemedText type="h3">Report an Issue</ThemedText>
-              <Pressable onPress={() => setShowModal(false)}>
+              <Pressable
+                onPress={() => setShowModal(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Close report issue"
+                hitSlop={10}
+                android_ripple={{ color: "rgba(0,0,0,0.08)", borderless: true }}
+              >
                 <Feather name="x" size={24} color={theme.text} />
               </Pressable>
             </View>
@@ -352,7 +358,7 @@ export default function ComplaintsScreen() {
                   <Feather name="link" size={20} color={image ? Colors.primary.main : theme.textSecondary} />
                   <TextInput
                     style={{ flex: 1, height: 50, color: theme.text, marginLeft: Spacing.sm }}
-                    placeholder="https://drive.google.com/... or any link"
+                    placeholder="https://drive.google.com/..."
                     placeholderTextColor={theme.textSecondary}
                     value={image || ""}
                     onChangeText={setImage}
@@ -367,7 +373,13 @@ export default function ComplaintsScreen() {
                     <ThemedText type="caption" style={{ color: Colors.status.success, flex: 1 }}>
                       Link added - Admin will be able to view this
                     </ThemedText>
-                    <Pressable onPress={() => setImage(null)}>
+                    <Pressable
+                      onPress={() => setImage(null)}
+                      accessibilityRole="button"
+                      accessibilityLabel="Clear attachment link"
+                      hitSlop={8}
+                      android_ripple={{ color: "rgba(0,0,0,0.08)", borderless: true }}
+                    >
                       <Feather name="x-circle" size={18} color={Colors.status.error} />
                     </Pressable>
                   </View>
@@ -398,7 +410,7 @@ export default function ComplaintsScreen() {
           </View>
         </View>
       </Modal>
-      <BrandedLoadingOverlay visible={isLoading} message="Fetching complaints..." icon="alert-circle" />
+      <LoadingOverlay visible={isLoading} message="Fetching complaints..." icon="alert-circle" />
     </ThemedView>
   );
 }

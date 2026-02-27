@@ -20,7 +20,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FloatingBackground } from "@/components/FloatingBackground";
-import { BrandedLoadingOverlay } from "@/components/BrandedLoadingOverlay";
+import { LoadingOverlay } from "@/components/LoadingOverlay";
 
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
@@ -414,7 +414,7 @@ export default function StudentDashboardScreen() {
           }
         </Animated.View>
       </ScrollView>
-      <BrandedLoadingOverlay visible={isLoading} message="Fetching your dashboard..." icon="home" />
+      <LoadingOverlay visible={isLoading} message="Fetching your dashboard..." icon="home" />
     </ThemedView>
   );
 }

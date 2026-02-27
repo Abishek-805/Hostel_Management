@@ -14,7 +14,9 @@ import { Colors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { TimeAgo } from "@/components/TimeAgo";
 import { getQueryFn } from "@/lib/query-client";
 import { FloatingBackground } from "@/components/FloatingBackground";
-import { BrandedLoadingOverlay } from "@/components/BrandedLoadingOverlay";
+import { LoadingOverlay } from "@/components/LoadingOverlay";
+import { EmptyState } from "@/components/EmptyState";
+import { ErrorState } from "@/components/ErrorState";
 
 // Blinking Dot for Urgency
 const BlinkingDot = ({ color, duration = 1000 }: { color: string, duration?: number }) => {
@@ -57,7 +59,7 @@ export default function AnnouncementsScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
 
-  const { data: announcements, isLoading, refetch } = useQuery({
+  const { data: announcements, isLoading, refetch, error } = useQuery({
     queryKey: ['/announcements'],
     queryFn: getQueryFn({ on401: 'returnNull' }),
   });
@@ -73,9 +75,15 @@ export default function AnnouncementsScreen() {
   return (
     <ThemedView style={styles.container}>
       <FloatingBackground primaryColor={Colors.primary.main} secondaryColor={Colors.secondary.main} />
+      {error ? (
+        <View style={[styles.listContent, { paddingTop: headerHeight + Spacing.lg, paddingBottom: tabBarHeight + 80 }]}>
+          <ErrorState title="Unable to load announcements" message="Please try again." onRetry={() => refetch()} />
+        </View>
+      ) : (
       <FlatList
         data={announcements as any[]}
         keyExtractor={(item) => item.id || item._id}
+        removeClippedSubviews
         contentContainerStyle={[
           styles.listContent,
           { paddingTop: headerHeight + Spacing.lg, paddingBottom: tabBarHeight + 80 },
@@ -85,14 +93,8 @@ export default function AnnouncementsScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary.main} />
         }
         ListEmptyComponent={() => (
-          <Animated.View entering={FadeInDown.delay(200)} style={[styles.emptyState, { backgroundColor: theme.backgroundDefault }]}>
-            <Feather name="bell-off" size={48} color={theme.textSecondary} style={{ opacity: 0.5 }} />
-            <ThemedText type="body" secondary style={styles.emptyText}>
-              No announcements yet
-            </ThemedText>
-            <ThemedText type="bodySmall" secondary style={styles.emptySubtext}>
-              Check back later for updates from hostel admin
-            </ThemedText>
+          <Animated.View entering={FadeInDown.delay(200)}>
+            <EmptyState title="No announcements yet" subtitle="Check back later for updates from hostel admin" icon="bell-off" />
           </Animated.View>
         )}
         renderItem={({ item, index }) => (
@@ -145,8 +147,8 @@ export default function AnnouncementsScreen() {
             </View>
           </Animated.View>
         )}
-      />
-      <BrandedLoadingOverlay visible={isLoading} message="Fetching announcements..." icon="bell" />
+      />)}
+      <LoadingOverlay visible={isLoading} message="Fetching announcements..." icon="bell" />
     </ThemedView>
   );
 }

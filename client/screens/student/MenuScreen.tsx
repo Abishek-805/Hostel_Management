@@ -15,7 +15,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { apiRequest } from "@/lib/query-client";
 import { Colors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { FloatingBackground } from "@/components/FloatingBackground";
-import { BrandedLoadingOverlay } from "@/components/BrandedLoadingOverlay";
+import { LoadingOverlay } from "@/components/LoadingOverlay";
 
 type MealType = "breakfast" | "lunch" | "dinner";
 
@@ -460,7 +460,7 @@ export default function MenuScreen() {
         </Animated.View>
       </ScrollView>
 
-      <BrandedLoadingOverlay visible={isLoading} message="Fetching today's menu..." icon="coffee" />
+      <LoadingOverlay visible={isLoading} message="Fetching today's menu..." icon="coffee" />
     </ThemedView>
   );
 }

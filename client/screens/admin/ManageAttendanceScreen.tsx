@@ -18,7 +18,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { Colors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { buildApiUrl } from "@/config/api";
 import { FloatingBackground } from "@/components/FloatingBackground";
-import { BrandedLoadingOverlay } from "@/components/BrandedLoadingOverlay";
+import { LoadingOverlay } from "@/components/LoadingOverlay";
 
 const { width } = Dimensions.get('window');
 
@@ -297,7 +297,13 @@ export default function ManageAttendanceScreen() {
               onChangeText={setSearchQuery}
             />
             {searchQuery.length > 0 && (
-              <Pressable onPress={() => setSearchQuery("")}>
+              <Pressable
+                onPress={() => setSearchQuery("")}
+                accessibilityRole="button"
+                accessibilityLabel="Clear search"
+                hitSlop={8}
+                android_ripple={{ color: "rgba(255,255,255,0.12)", borderless: true }}
+              >
                 <Feather name="x-circle" size={16} color="rgba(255,255,255,0.4)" />
               </Pressable>
             )}
@@ -404,7 +410,7 @@ export default function ManageAttendanceScreen() {
         </View>
       </ScrollView>
 
-      <BrandedLoadingOverlay visible={isLoading && !isRefetching} message="Loading Roster..." icon="refresh-cw" color={Colors.primary.main} />
+      <LoadingOverlay visible={isLoading && !isRefetching} message="Loading Roster..." icon="refresh-cw" color={Colors.primary.main} />
     </ThemedView>
   );
 }

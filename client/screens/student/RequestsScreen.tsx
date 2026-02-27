@@ -15,7 +15,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { apiRequest, getQueryFn } from "@/lib/query-client";
 import { Colors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { FloatingBackground } from "@/components/FloatingBackground";
-import { BrandedLoadingOverlay } from "@/components/BrandedLoadingOverlay";
+import { LoadingOverlay } from "@/components/LoadingOverlay";
+import { EmptyState } from "@/components/EmptyState";
 
 type FilterTab = "all" | "pending" | "approved" | "rejected";
 
@@ -172,6 +173,7 @@ export default function RequestsScreen() {
       <FlatList
         data={filteredRequests}
         keyExtractor={(item) => item._id}
+        removeClippedSubviews
         contentContainerStyle={[
           styles.listContent,
           { paddingBottom: tabBarHeight + 100 },
@@ -199,12 +201,7 @@ export default function RequestsScreen() {
           ) : null
         )}
         ListEmptyComponent={() => (
-          <View style={[styles.emptyState, { backgroundColor: theme.backgroundDefault }]}>
-            <Feather name="calendar" size={48} color={theme.textSecondary} />
-            <ThemedText type="body" secondary style={styles.emptyText}>
-              No leave requests found
-            </ThemedText>
-          </View>
+          <EmptyState title="No leave requests found" subtitle="Submit a new request to get started." icon="calendar" />
         )}
         renderItem={({ item }) => (
           <View style={[styles.requestCard, { backgroundColor: theme.backgroundDefault }]}>
@@ -257,6 +254,10 @@ export default function RequestsScreen() {
       <Pressable
         style={[styles.fab, { backgroundColor: Colors.primary.main }]}
         onPress={() => setShowModal(true)}
+        accessibilityRole="button"
+        accessibilityLabel="Create leave request"
+        hitSlop={8}
+        android_ripple={{ color: "rgba(255,255,255,0.2)", borderless: true }}
       >
         <Feather name="plus" size={24} color="#FFFFFF" />
       </Pressable>
@@ -272,7 +273,13 @@ export default function RequestsScreen() {
           <View style={[styles.modalContent, { backgroundColor: theme.backgroundRoot }]}>
             <View style={styles.modalHeader}>
               <ThemedText type="h3">New Leave Request</ThemedText>
-              <Pressable onPress={() => setShowModal(false)}>
+              <Pressable
+                onPress={() => setShowModal(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Close new leave request"
+                hitSlop={10}
+                android_ripple={{ color: "rgba(0,0,0,0.08)", borderless: true }}
+              >
                 <Feather name="x" size={24} color={theme.text} />
               </Pressable>
             </View>
@@ -397,7 +404,7 @@ export default function RequestsScreen() {
                 </ThemedText>
                 <TextInput
                   style={[styles.input, { backgroundColor: theme.backgroundDefault, color: theme.text, borderWidth: 1, borderColor: imageUrl ? Colors.primary.main : theme.border }]}
-                  placeholder="https://drive.google.com/... or any document link"
+                  placeholder="https://drive.google.com/..."
                   placeholderTextColor={theme.textSecondary}
                   value={imageUrl}
                   onChangeText={setImageUrl}
@@ -436,7 +443,7 @@ export default function RequestsScreen() {
           </View>
         </View>
       </Modal>
-      <BrandedLoadingOverlay visible={isLoading} message="Fetching requests..." icon="calendar" />
+      <LoadingOverlay visible={isLoading} message="Fetching requests..." icon="calendar" />
     </ThemedView>
   );
 }

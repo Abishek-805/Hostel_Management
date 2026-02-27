@@ -40,10 +40,35 @@ declare module "http" {
    ✅ CORS (FIXED)
 ========================= */
 function setupCors(app: express.Application) {
-  app.use((req, res, next) => {
-    const origin = req.headers.origin;
+  const configuredOrigins = (process.env.CORS_ORIGINS || "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
 
-    if (origin) {
+  const allowedOrigins = new Set<string>([
+    APP_ORIGIN,
+    "http://localhost:8081",
+    "http://127.0.0.1:8081",
+    "http://localhost:19006",
+    "http://127.0.0.1:19006",
+    ...configuredOrigins,
+  ]);
+
+  const isAllowedOrigin = (origin: string) => {
+    if (allowedOrigins.has(origin)) return true;
+
+    if (!isProduction) {
+      return /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
+    }
+
+    return false;
+  };
+
+  app.use((req, res, next) => {
+    const origin = req.headers.origin as string | undefined;
+    const isAllowed = !!origin && isAllowedOrigin(origin);
+
+    if (isAllowed) {
       res.setHeader("Access-Control-Allow-Origin", origin);
     }
 
@@ -52,13 +77,20 @@ function setupCors(app: express.Application) {
       "Access-Control-Allow-Methods",
       "GET, POST, PUT, PATCH, DELETE, OPTIONS"
     );
+    const requestedHeaders = req.headers["access-control-request-headers"];
     res.setHeader(
       "Access-Control-Allow-Headers",
-      "Content-Type, Authorization"
+      typeof requestedHeaders === "string"
+        ? requestedHeaders
+        : "Content-Type, Authorization"
     );
     res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Access-Control-Max-Age", "86400");
 
     if (req.method === "OPTIONS") {
+      if (origin && !isAllowed) {
+        return res.status(403).json({ error: "Origin not allowed by CORS" });
+      }
       return res.sendStatus(204);
     }
 
@@ -277,10 +309,9 @@ process.on("SIGINT", () => gracefulShutdown("SIGINT"));
    BOOTSTRAP
 ========================= */
 (async () => {
-  // Security must be applied FIRST (before any other middleware)
+  // CORS must be applied first so preflight always gets headers
+  setupCors(app);
   setupAllSecurityMiddleware(app);
-
-  setupCors(app);              // ✅ AFTER security
   setupBodyParsing(app);
   setupRequestLogging(app);
 

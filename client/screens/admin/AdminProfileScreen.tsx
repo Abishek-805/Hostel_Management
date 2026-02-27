@@ -18,7 +18,7 @@ import { apiRequest, getQueryFn } from "@/lib/query-client";
 import { Colors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { HOSTEL_CODES } from "@/constants/hostels";
 import { FloatingBackground } from "@/components/FloatingBackground";
-import { BrandedLoadingOverlay } from "@/components/BrandedLoadingOverlay";
+import { LoadingOverlay } from "@/components/LoadingOverlay";
 
 // Pulsing Icon Component
 const PulsingIcon = ({ children, style }: { children: React.ReactNode, style: any }) => {
@@ -298,7 +298,14 @@ export default function AdminProfileScreen() {
           }}
           secureTextEntry={!showPass}
         />
-        <Pressable onPress={toggleShowPass} style={{ padding: Spacing.sm }}>
+        <Pressable
+          onPress={toggleShowPass}
+          style={{ padding: Spacing.sm }}
+          accessibilityRole="button"
+          accessibilityLabel={showPass ? "Hide password" : "Show password"}
+          hitSlop={8}
+          android_ripple={{ color: "rgba(0,0,0,0.08)", borderless: true }}
+        >
           <Feather name={showPass ? "eye" : "eye-off"} size={20} color={theme.textSecondary} />
         </Pressable>
       </View>
@@ -533,7 +540,13 @@ export default function AdminProfileScreen() {
           <View style={[styles.modalContent, { backgroundColor: theme.backgroundRoot }]}>
             <View style={styles.modalHeader}>
               <ThemedText type="h3">Change Password</ThemedText>
-              <Pressable onPress={() => setShowPasswordModal(false)}>
+              <Pressable
+                onPress={() => setShowPasswordModal(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Close change password"
+                hitSlop={10}
+                android_ripple={{ color: "rgba(0,0,0,0.08)", borderless: true }}
+              >
                 <Feather name="x" size={24} color={theme.text} />
               </Pressable>
             </View>
@@ -645,7 +658,13 @@ export default function AdminProfileScreen() {
           <View style={[styles.modalContent, { backgroundColor: theme.backgroundRoot, paddingBottom: Spacing.xl }]}>
             <View style={styles.modalHeader}>
               <ThemedText type="h3">Hostel Code</ThemedText>
-              <Pressable onPress={() => setShowVerifyCodeModal(false)}>
+              <Pressable
+                onPress={() => setShowVerifyCodeModal(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Close hostel code information"
+                hitSlop={10}
+                android_ripple={{ color: "rgba(0,0,0,0.08)", borderless: true }}
+              >
                 <Feather name="x" size={24} color={theme.text} />
               </Pressable>
             </View>
@@ -707,7 +726,13 @@ export default function AdminProfileScreen() {
           <View style={[styles.modalContent, { backgroundColor: theme.backgroundRoot }]}>
             <View style={styles.modalHeader}>
               <ThemedText type="h3">Update Phone Number</ThemedText>
-              <Pressable onPress={() => setShowPhoneModal(false)}>
+              <Pressable
+                onPress={() => setShowPhoneModal(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Close phone update"
+                hitSlop={10}
+                android_ripple={{ color: "rgba(0,0,0,0.08)", borderless: true }}
+              >
                 <Feather name="x" size={24} color={theme.text} />
               </Pressable>
             </View>
@@ -749,7 +774,13 @@ export default function AdminProfileScreen() {
           <View style={[styles.modalContent, { backgroundColor: theme.backgroundRoot, height: '70%' }]}>
             <View style={styles.modalHeader}>
               <ThemedText type="h3">Absent Students</ThemedText>
-              <Pressable onPress={() => setShowAbsentModal(false)}>
+              <Pressable
+                onPress={() => setShowAbsentModal(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Close absent students"
+                hitSlop={10}
+                android_ripple={{ color: "rgba(0,0,0,0.08)", borderless: true }}
+              >
                 <Feather name="x" size={24} color={theme.text} />
               </Pressable>
             </View>
@@ -839,7 +870,7 @@ export default function AdminProfileScreen() {
           </View>
         </View>
       </Modal>
-      <BrandedLoadingOverlay visible={statsLoading} message="Loading admin profile..." icon="shield" color={Colors.secondary.main} />
+      <LoadingOverlay visible={statsLoading} message="Loading admin profile..." icon="shield" color={Colors.secondary.main} />
     </ThemedView>
   );
 }

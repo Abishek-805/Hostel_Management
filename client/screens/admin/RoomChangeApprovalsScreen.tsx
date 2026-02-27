@@ -13,7 +13,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { apiRequest } from "@/lib/query-client";
 import { Colors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { FloatingBackground } from "@/components/FloatingBackground";
-import { BrandedLoadingOverlay } from "@/components/BrandedLoadingOverlay";
+import { LoadingOverlay } from "@/components/LoadingOverlay";
+import { EmptyState } from "@/components/EmptyState";
 
 type FilterTab = "pending" | "all" | "approved" | "rejected";
 
@@ -127,7 +128,7 @@ export default function RoomChangeApprovalsScreen() {
                         </View>
                     </Pressable>
                 )}
-                ListEmptyComponent={<ThemedText style={{ textAlign: 'center', marginTop: 40 }} secondary>No requests found</ThemedText>}
+                ListEmptyComponent={<EmptyState title="No requests found" subtitle="Room change requests will appear here." icon="inbox" />}
             />
 
             <Modal visible={showModal} transparent animationType="fade" accessibilityViewIsModal={true}>
@@ -135,7 +136,13 @@ export default function RoomChangeApprovalsScreen() {
                     <View style={[styles.modalContent, { backgroundColor: theme.backgroundRoot }]}>
                         <View style={styles.modalHeader}>
                             <ThemedText type="h3">Room Change Details</ThemedText>
-                            <Pressable onPress={() => setShowModal(false)}><Feather name="x" size={24} color={theme.text} /></Pressable>
+                            <Pressable
+                                onPress={() => setShowModal(false)}
+                                accessibilityRole="button"
+                                accessibilityLabel="Close room change details"
+                                hitSlop={10}
+                                android_ripple={{ color: "rgba(0,0,0,0.08)", borderless: true }}
+                            ><Feather name="x" size={24} color={theme.text} /></Pressable>
                         </View>
                         <View style={styles.modalBody}>
                             <ThemedText type="body">Student: {selectedRequest?.userId?.name}</ThemedText>
@@ -197,7 +204,7 @@ export default function RoomChangeApprovalsScreen() {
                 </View>
             </Modal>
 
-            <BrandedLoadingOverlay visible={isLoading} message="Loading requests..." icon="refresh-cw" />
+            <LoadingOverlay visible={isLoading} message="Loading requests..." icon="refresh-cw" />
         </ThemedView>
     );
 }

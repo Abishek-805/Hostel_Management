@@ -1,5 +1,5 @@
 import React, { ReactNode } from "react";
-import { StyleSheet, Pressable, ViewStyle, StyleProp, ActivityIndicator } from "react-native";
+import { StyleSheet, Pressable, ViewStyle, StyleProp, ActivityIndicator, GestureResponderEvent, Insets, Platform } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -22,6 +22,9 @@ interface ButtonProps {
   loading?: boolean;
   variant?: ButtonVariant;
   fullWidth?: boolean;
+  accessibilityLabel?: string;
+  accessibilityRole?: "button";
+  hitSlop?: Insets;
 }
 
 const springConfig: WithSpringConfig = {
@@ -43,6 +46,9 @@ export function Button({
   loading = false,
   variant = "primary",
   fullWidth = false,
+  accessibilityLabel,
+  accessibilityRole = "button",
+  hitSlop,
 }: ButtonProps) {
   const { theme, isDark } = useTheme();
   const scale = useSharedValue(1);
@@ -113,6 +119,10 @@ export function Button({
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       disabled={disabled || loading}
+      accessibilityRole={accessibilityRole}
+      accessibilityLabel={accessibilityLabel}
+      hitSlop={hitSlop ?? { top: 8, bottom: 8, left: 8, right: 8 }}
+      android_ripple={Platform.OS === "android" ? { color: "rgba(255,255,255,0.16)", borderless: false } : undefined}
       style={[
         styles.button,
         getButtonStyle(),

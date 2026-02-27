@@ -18,7 +18,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { apiRequest } from "@/lib/query-client";
 import { Colors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { FloatingBackground } from "@/components/FloatingBackground";
-import { BrandedLoadingOverlay } from "@/components/BrandedLoadingOverlay";
+import { LoadingOverlay } from "@/components/LoadingOverlay";
+import { EmptyState } from "@/components/EmptyState";
 
 type MealCategory = "breakfast" | "lunch" | "dinner" | "snacks";
 const CATEGORIES: MealCategory[] = ["breakfast", "lunch", "dinner", "snacks"];
@@ -217,17 +218,12 @@ export default function ManageSuggestionsScreen() {
                             </Animated.View>
                         ))
                     ) : (
-                        <View style={styles.emptyState}>
-                            <Feather name="inbox" size={48} color={theme.textSecondary} />
-                            <ThemedText type="body" secondary style={{ marginTop: Spacing.md }}>
-                                No suggestions found for this category
-                            </ThemedText>
-                        </View>
+                        <EmptyState title="No suggestions found" subtitle="Try a different category." icon="inbox" />
                     )}
                 </View>
             </ScrollView>
 
-            <BrandedLoadingOverlay visible={isLoading} message="Loading suggestions..." icon="book-open" />
+            <LoadingOverlay visible={isLoading} message="Loading suggestions..." icon="book-open" />
         </ThemedView>
     );
 }

@@ -5,7 +5,7 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
-import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
+import Animated, { FadeInDown, Layout, ZoomIn } from 'react-native-reanimated';
 
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
@@ -14,9 +14,12 @@ import { useTheme } from "@/hooks/useTheme";
 import { apiRequest } from "@/lib/query-client";
 import { Colors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { FloatingBackground } from "@/components/FloatingBackground";
-import { BrandedLoadingOverlay } from "@/components/BrandedLoadingOverlay";
+import { LoadingOverlay } from "@/components/LoadingOverlay";
 import { useAuth } from "@/contexts/AuthContext";
 import { HOSTEL_BLOCKS } from "@/constants/hostels";
+import { EmptyState } from "@/components/EmptyState";
+import { ErrorState } from "@/components/ErrorState";
+import { DesignSystem } from "@/theme/designSystem";
 
 const BLOCKS = ["Block A", "Block B", "Block C", "Block D"];
 
@@ -34,14 +37,17 @@ export default function ManageRoomsScreen() {
 
     const blockLetter = selectedBlock.split(" ")[1];
 
-    const { data: rooms, isLoading } = useQuery({
+    const { data: rooms, isLoading, error: roomsError, refetch: refetchRooms } = useQuery({
         queryKey: ['/rooms/block', blockLetter, selectedHostel],
         queryFn: async () => {
             const res = await apiRequest('GET', `/rooms/block/${blockLetter}?hostelBlock=${encodeURIComponent(selectedHostel)}`);
             if (!res.ok) throw new Error('Failed to fetch rooms');
             return res.json();
         },
-        enabled: !!blockLetter && !!selectedHostel
+        enabled: !!blockLetter && !!selectedHostel,
+        refetchOnMount: true,
+        refetchOnReconnect: true,
+        refetchOnWindowFocus: true,
     });
 
     const { data: students } = useQuery({
@@ -168,7 +174,14 @@ export default function ManageRoomsScreen() {
             >
                 <View style={styles.header}>
                     <ThemedText type="h2" style={styles.title}>Room Allotment</ThemedText>
-                    <Pressable style={styles.hostelSelectorButton} onPress={() => setShowHostelModal(true)}>
+                    <Pressable
+                        style={styles.hostelSelectorButton}
+                        onPress={() => setShowHostelModal(true)}
+                        accessibilityRole="button"
+                        accessibilityLabel="Select hostel"
+                        android_ripple={{ color: "rgba(255,255,255,0.18)", borderless: false }}
+                        hitSlop={8}
+                    >
                         <Feather name="map-pin" size={16} color={Colors.primary.main} style={{ marginRight: 8 }} />
                         <ThemedText type="bodySmall" style={{ fontWeight: '600' }}>{selectedHostel}</ThemedText>
                         <Feather name="chevron-down" size={16} color={theme.textSecondary} style={{ marginLeft: 8 }} />
@@ -182,6 +195,10 @@ export default function ManageRoomsScreen() {
                                 key={block}
                                 style={[styles.blockButton, { backgroundColor: selectedBlock === block ? Colors.primary.main : 'rgba(255,255,255,0.05)' }]}
                                 onPress={() => setSelectedBlock(block)}
+                                accessibilityRole="button"
+                                accessibilityLabel={`Select ${block}`}
+                                android_ripple={{ color: "rgba(255,255,255,0.14)", borderless: false }}
+                                hitSlop={8}
                             >
                                 <ThemedText type="bodySmall" style={{ color: "#FFFFFF", fontWeight: "700" }}>{block}</ThemedText>
                             </Pressable>
@@ -204,28 +221,58 @@ export default function ManageRoomsScreen() {
                     </View>
                 </Animated.View>
 
-                <View style={styles.roomGrid}>
-                    {sortedRooms.map((room: any, index: number) => {
-                        const statusColor = getRoomColor(room);
-                        return (
-                            <Animated.View entering={FadeInDown.delay(400 + (index * 20))} key={room._id} style={styles.roomCardContainer}>
-                                <Pressable
-                                    style={[styles.roomCard, { borderColor: statusColor + '60' }]}
-                                    onPress={() => { setSelectedRoom(room); setShowDetailsModal(true); }}
+                {roomsError ? (
+                    <ErrorState
+                        title="Failed to load rooms"
+                        message="Please check your connection and retry."
+                        onRetry={() => refetchRooms()}
+                    />
+                ) : sortedRooms.length === 0 && !isLoading ? (
+                    <EmptyState
+                        title="No rooms found"
+                        subtitle="Add a room to start allotment for this block."
+                        icon="home"
+                    />
+                ) : (
+                    <View style={styles.roomGrid}>
+                        {sortedRooms.map((room: any, index: number) => {
+                            const statusColor = getRoomColor(room);
+                            return (
+                                <Animated.View
+                                    layout={Layout.springify().damping(18).stiffness(140)}
+                                    entering={FadeInDown.delay(300 + (index * 16))}
+                                    key={room._id}
+                                    style={styles.roomCardContainer}
                                 >
-                                    <ThemedText type="h3" style={[styles.roomNumber, { color: statusColor }]}>{room.roomNumber}</ThemedText>
-                                    <View style={styles.occupancyRow}>
-                                        <Feather name="users" size={12} color={theme.textSecondary} />
-                                        <ThemedText type="caption" secondary style={{ fontWeight: '600' }}>{room.currentOccupancy}/{room.capacity}</ThemedText>
-                                    </View>
-                                </Pressable>
-                            </Animated.View>
-                        );
-                    })}
-                </View>
+                                    <Pressable
+                                        style={[styles.roomCard, { borderColor: statusColor + '60' }]}
+                                        onPress={() => { setSelectedRoom(room); setShowDetailsModal(true); }}
+                                        accessibilityRole="button"
+                                        accessibilityLabel={`Room ${room.roomNumber}, occupancy ${room.currentOccupancy} of ${room.capacity}`}
+                                        android_ripple={{ color: "rgba(255,255,255,0.12)", borderless: false }}
+                                        hitSlop={8}
+                                    >
+                                        <ThemedText type="h3" style={[styles.roomNumber, { color: statusColor }]}>{room.roomNumber}</ThemedText>
+                                        <View style={styles.occupancyRow}>
+                                            <Feather name="users" size={DesignSystem.icon.xs} color={theme.textSecondary} />
+                                            <ThemedText type="caption" secondary style={{ fontWeight: '600' }}>{room.currentOccupancy}/{room.capacity}</ThemedText>
+                                        </View>
+                                    </Pressable>
+                                </Animated.View>
+                            );
+                        })}
+                    </View>
+                )}
             </ScrollView>
 
-            <Pressable style={[styles.fab, { backgroundColor: Colors.primary.main, bottom: insets.bottom + Spacing.xl }]} onPress={() => setShowAddRoomModal(true)}>
+            <Pressable
+                style={[styles.fab, { backgroundColor: Colors.primary.main, bottom: insets.bottom + Spacing.xl }]}
+                onPress={() => setShowAddRoomModal(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Add new room"
+                android_ripple={{ color: "rgba(255,255,255,0.22)", borderless: true }}
+                hitSlop={10}
+            >
                 <Feather name="plus" size={24} color="#FFFFFF" />
             </Pressable>
 
@@ -345,26 +392,26 @@ export default function ManageRoomsScreen() {
                 </View>
             </Modal>
 
-            <BrandedLoadingOverlay visible={isLoading} />
+            <LoadingOverlay visible={isLoading} message="Loading rooms..." />
         </ThemedView>
     );
 }
 
 const styles = StyleSheet.create({
     container: { flex: 1 },
-    scrollContent: { paddingHorizontal: Spacing.lg },
-    header: { marginBottom: Spacing.xl, alignItems: 'center', gap: Spacing.md },
+    scrollContent: { paddingHorizontal: DesignSystem.layout.screenPaddingHorizontal },
+    header: { marginBottom: DesignSystem.layout.sectionGap, alignItems: 'center', gap: Spacing.md },
     title: { fontSize: 28, fontWeight: '800', color: '#FFFFFF' },
-    hostelSelectorButton: { flexDirection: 'row', alignItems: 'center', padding: 10, borderRadius: BorderRadius.full, backgroundColor: 'rgba(255,255,255,0.1)' },
-    blockSelector: { marginBottom: Spacing.xl },
+    hostelSelectorButton: { flexDirection: 'row', alignItems: 'center', minHeight: DesignSystem.button.minTouch, paddingHorizontal: 12, paddingVertical: 10, borderRadius: BorderRadius.full, backgroundColor: 'rgba(255,255,255,0.1)' },
+    blockSelector: { marginBottom: DesignSystem.layout.sectionGap },
     blockRow: { gap: Spacing.sm },
-    blockButton: { paddingHorizontal: 20, paddingVertical: 12, borderRadius: BorderRadius.md, minWidth: 100, alignItems: "center" },
-    statsRow: { flexDirection: "row", gap: Spacing.md, marginBottom: Spacing.xxl },
+    blockButton: { minHeight: DesignSystem.button.minTouch, paddingHorizontal: 20, paddingVertical: 12, borderRadius: BorderRadius.md, minWidth: 100, alignItems: "center", justifyContent: 'center' },
+    statsRow: { flexDirection: "row", gap: Spacing.md, marginBottom: DesignSystem.layout.sectionGap },
     statCard: { flex: 1, padding: Spacing.lg, borderRadius: BorderRadius.lg, alignItems: "center", backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
     statNumber: { fontSize: 32, fontWeight: '800' },
     roomGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: 'flex-start' },
     roomCardContainer: { width: '25%', padding: Spacing.xs },
-    roomCard: { width: "100%", paddingVertical: Spacing.lg, borderRadius: BorderRadius.lg, borderWidth: 1.5, alignItems: "center", backgroundColor: 'rgba(255,255,255,0.05)' },
+    roomCard: { width: "100%", minHeight: 84, paddingVertical: Spacing.lg, borderRadius: BorderRadius.lg, borderWidth: 1.5, alignItems: "center", justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.05)' },
     roomNumber: { fontSize: 20, fontWeight: '800' },
     occupancyRow: { flexDirection: "row", alignItems: "center", gap: 6 },
     fab: { position: 'absolute', right: Spacing.xl, width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', ...Shadows.fab },
