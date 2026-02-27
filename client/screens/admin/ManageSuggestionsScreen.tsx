@@ -5,8 +5,9 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useQuery } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
 import Animated, { FadeInDown, FadeInRight } from 'react-native-reanimated';
-import * as FileSystem from 'expo-file-system/legacy';
+import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import * as MediaLibrary from 'expo-media-library';
 
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
@@ -49,6 +50,7 @@ export default function ManageSuggestionsScreen() {
 
             if (!response.ok) throw new Error("Export failed");
 
+            // Web: Direct browser download
             if (Platform.OS === 'web') {
                 const blob = await response.blob();
                 const url = window.URL.createObjectURL(blob);
@@ -58,31 +60,57 @@ export default function ManageSuggestionsScreen() {
                 document.body.appendChild(a);
                 a.click();
                 window.URL.revokeObjectURL(url);
-            } else {
-                const blob = await response.blob();
-                const base64 = await new Promise<string>((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = () => resolve(reader.result?.toString().split(',')[1] || '');
-                    reader.onerror = reject;
-                    reader.readAsDataURL(blob);
-                });
+                return;
+            }
 
-                // @ts-ignore
-                const directory = FileSystem.documentDirectory || FileSystem.cacheDirectory || '';
-                const filename = `${directory}Top_Suggestions_${user?.hostelBlock}.xlsx`;
-                await FileSystem.writeAsStringAsync(filename, base64, {
-                    encoding: 'base64' as any,
-                });
+            // Mobile: Save to device storage using new SDK 54 File API
+            const blob = await response.blob();
+            const base64 = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result?.toString().split(',')[1] || '');
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
 
+            const filename = `Menu_Suggestions_${user?.hostelBlock}.xlsx`;
+            
+            // Create file using new SDK 54 API
+            const file = new File(Paths.document, filename);
+            await file.write(base64, {
+                encoding: 'base64',
+            });
+
+            // Platform-specific handling
+            if (Platform.OS === 'android') {
+                // Android: Direct save to Downloads folder
+                try {
+                    const { status } = await MediaLibrary.requestPermissionsAsync();
+                    if (status === 'granted') {
+                        const asset = await MediaLibrary.createAssetAsync(file.uri);
+                        await MediaLibrary.createAlbumAsync("Download", asset, false);
+                        Alert.alert("Success", "Menu suggestions saved to Downloads folder");
+                    } else {
+                        Alert.alert("Permission Denied", "Unable to save to Downloads. Grant storage permission in app settings.");
+                    }
+                } catch (mlError) {
+                    console.error("[Export] MediaLibrary error:", mlError);
+                    Alert.alert("Error", "Failed to save to Downloads folder");
+                }
+            } else if (Platform.OS === 'ios') {
+                // iOS: Use share sheet
                 if (await Sharing.isAvailableAsync()) {
-                    await Sharing.shareAsync(filename);
+                    await Sharing.shareAsync(file.uri, {
+                        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                        dialogTitle: 'Share Menu Suggestions',
+                    });
+                    Alert.alert("Success", "Menu suggestions exported!");
                 } else {
-                    Alert.alert("Success", "File saved to: " + filename);
+                    Alert.alert("Success", "File saved to device storage.");
                 }
             }
         } catch (error) {
-            console.error("Export error:", error);
-            Alert.alert("Error", "Failed to export suggestions");
+            console.error("[Export] Menu suggestions export failed:", error instanceof Error ? error.message : String(error));
+            Alert.alert("Error", error instanceof Error ? error.message : "Failed to export suggestions");
         } finally {
             setIsExporting(false);
         }

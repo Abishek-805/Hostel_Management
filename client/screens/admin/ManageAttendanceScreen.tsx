@@ -4,8 +4,9 @@ import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useQuery } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
-import * as FileSystem from 'expo-file-system/legacy';
+import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import * as MediaLibrary from 'expo-media-library';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Animated, { FadeInDown, FadeInRight, FadeInUp, Layout, ZoomIn } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -151,6 +152,7 @@ export default function ManageAttendanceScreen() {
       const token = await AsyncStorage.getItem("@hostelease_token");
       const exportUrl = `${buildApiUrl("/attendances/export-excel")}?t=${Date.now()}`;
 
+      // Web: Direct browser download
       if (Platform.OS === 'web') {
         const response = await fetch(exportUrl, {
           headers: { 'Authorization': `Bearer ${token}` }
@@ -167,25 +169,72 @@ export default function ManageAttendanceScreen() {
         return;
       }
 
+      // Mobile: Download and save to device storage using new SDK 54 File API
       const fileName = `Attendance_Summary_${dateString}.xlsx`;
-      const fileUri = (FileSystem as any).cacheDirectory + fileName;
 
-      const downloadRes = await FileSystem.downloadAsync(exportUrl, fileUri, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      try {
+        // Fetch file from backend
+        const response = await fetch(exportUrl, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
 
-      if (downloadRes.status === 200) {
-        if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(downloadRes.uri);
-        } else {
-          Alert.alert("Error", "Sharing is not available on this device.");
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: Failed to download report`);
         }
-      } else {
-        Alert.alert("Error", "Failed to download report. Please try again.");
+
+        const blob = await response.blob();
+
+        // Convert to base64
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result?.toString().split(',')[1] || '');
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+
+        // Create file using new SDK 54 API
+        const file = new File(Paths.document, fileName);
+        await file.write(base64, {
+          encoding: 'base64',
+        });
+
+        // Platform-specific handling
+        if (Platform.OS === 'android') {
+          // Android: Direct save to Downloads folder
+          try {
+            const { status } = await MediaLibrary.requestPermissionsAsync();
+            if (status === 'granted') {
+              const asset = await MediaLibrary.createAssetAsync(file.uri);
+              await MediaLibrary.createAlbumAsync("Download", asset, false);
+              Alert.alert("Success", "Report saved to Downloads folder");
+            } else {
+              Alert.alert("Permission Denied", "Unable to save to Downloads. Grant storage permission in app settings.");
+            }
+          } catch (mlError) {
+            console.error("[Export] MediaLibrary error:", mlError);
+            Alert.alert("Error", "Failed to save to Downloads folder");
+          }
+        } else if (Platform.OS === 'ios') {
+          // iOS: Use share sheet
+          if (await Sharing.isAvailableAsync()) {
+            await Sharing.shareAsync(file.uri, {
+              mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+              dialogTitle: 'Share Attendance Report',
+            });
+            Alert.alert("Success", "Attendance report exported!");
+          } else {
+            Alert.alert("Success", "File saved to device storage.");
+          }
+        }
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        console.error("[Export] Attendance export failed:", errorMsg);
+        Alert.alert("Error", errorMsg || "Failed to download report.");
       }
     } catch (error) {
-      console.error("Export Error:", error);
-      Alert.alert("Error", "An error occurred while exporting the report.");
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error("[Export] Unexpected error:", errorMsg);
+      Alert.alert("Error", "An unexpected error occurred while exporting.");
     } finally {
       setIsExporting(false);
     }

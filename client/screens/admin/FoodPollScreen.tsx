@@ -17,8 +17,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import * as FileSystem from 'expo-file-system/legacy';
+import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import * as MediaLibrary from 'expo-media-library';
 import Animated, {
   FadeInDown,
   FadeInRight,
@@ -168,8 +169,8 @@ export default function FoodPollScreen() {
 
       const blob = await res.blob();
 
+      // Web: Direct browser download
       if (Platform.OS === "web") {
-        // Web: Direct browser download
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
@@ -178,11 +179,13 @@ export default function FoodPollScreen() {
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
-      } else {
-        // Mobile: Download to file system and share
-        const fileName = `poll-results-${pollId}.xlsx`;
-        const fileUri = (FileSystem as any).cacheDirectory + fileName;
+        return { success: true, message: "File downloaded" };
+      }
 
+      // Mobile: Save to device storage using new SDK 54 File API
+      const fileName = `poll-results-${pollId}.xlsx`;
+
+      try {
         // Convert blob to base64
         const base64 = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
@@ -191,28 +194,51 @@ export default function FoodPollScreen() {
           reader.readAsDataURL(blob);
         });
 
-        // Write file to cache directory
-        await FileSystem.writeAsStringAsync(fileUri, base64, {
-          encoding: 'base64' as any,
+        // Create file using new SDK 54 API
+        const file = new File(Paths.document, fileName);
+        await file.write(base64, {
+          encoding: 'base64',
         });
 
-        // Open share sheet if available, otherwise show success message
-        if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(fileUri);
-        } else {
-          Alert.alert("Success", "Poll results exported as Excel file and saved to device.");
+        // Platform-specific handling
+        if (Platform.OS === 'android') {
+          // Android: Direct save to Downloads folder
+          try {
+            const { status } = await MediaLibrary.requestPermissionsAsync();
+            if (status === 'granted') {
+              const asset = await MediaLibrary.createAssetAsync(file.uri);
+              await MediaLibrary.createAlbumAsync("Download", asset, false);
+              Alert.alert("Success", "Poll results saved to Downloads folder");
+            } else {
+              Alert.alert("Permission Denied", "Unable to save to Downloads. Grant storage permission in app settings.");
+            }
+          } catch (mlError) {
+            console.error("[Export] MediaLibrary error:", mlError);
+            Alert.alert("Error", "Failed to save to Downloads folder");
+          }
+        } else if (Platform.OS === 'ios') {
+          // iOS: Use share sheet
+          if (await Sharing.isAvailableAsync()) {
+            await Sharing.shareAsync(file.uri, {
+              mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+              dialogTitle: 'Share Poll Results',
+            });
+            Alert.alert("Success", "Poll results exported!");
+          } else {
+            Alert.alert("Success", "File saved to device storage.");
+          }
         }
-      }
 
-      return blob;
+        return { success: true, message: "File saved and shared" };
+      } catch (error) {
+        console.error("[Export] Failed to save/share file:", error instanceof Error ? error.message : String(error));
+        throw new Error("Failed to save or share file");
+      }
     },
     onSuccess: () => {
-      Alert.alert(
-        "Success",
-        Platform.OS === "web"
-          ? "Poll results exported as Excel file and downloaded successfully!"
-          : "Poll results exported successfully!"
-      );
+      if (Platform.OS !== "web") {
+        Alert.alert("Success", "Poll results exported successfully!");
+      }
     },
     onError: (error: any) => {
       Alert.alert(
