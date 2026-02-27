@@ -18,8 +18,8 @@ import { Feather } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { File, Paths } from 'expo-file-system';
+import { StorageAccessFramework } from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
-import * as MediaLibrary from 'expo-media-library';
 import Animated, {
   FadeInDown,
   FadeInRight,
@@ -202,20 +202,22 @@ export default function FoodPollScreen() {
 
         // Platform-specific handling
         if (Platform.OS === 'android') {
-          // Android: Direct save to Downloads folder
-          try {
-            const { status } = await MediaLibrary.requestPermissionsAsync();
-            if (status === 'granted') {
-              const asset = await MediaLibrary.createAssetAsync(file.uri);
-              await MediaLibrary.createAlbumAsync("Download", asset, false);
-              Alert.alert("Success", "Poll results saved to Downloads folder");
-            } else {
-              Alert.alert("Permission Denied", "Unable to save to Downloads. Grant storage permission in app settings.");
-            }
-          } catch (mlError) {
-            console.error("[Export] MediaLibrary error:", mlError);
-            Alert.alert("Error", "Failed to save to Downloads folder");
+          const permissions = await StorageAccessFramework.requestDirectoryPermissionsAsync();
+          if (!permissions.granted) {
+            throw new Error("Permission required to save the exported file");
           }
+
+          const uri = await StorageAccessFramework.createFileAsync(
+            permissions.directoryUri,
+            fileName,
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+          );
+
+          await StorageAccessFramework.writeAsStringAsync(uri, base64, {
+            encoding: 'base64',
+          });
+
+          Alert.alert("Saved successfully", "Poll results saved.");
         } else if (Platform.OS === 'ios') {
           // iOS: Use share sheet
           if (await Sharing.isAvailableAsync()) {
@@ -231,8 +233,7 @@ export default function FoodPollScreen() {
 
         return { success: true, message: "File saved and shared" };
       } catch (error) {
-        console.error("[Export] Failed to save/share file:", error instanceof Error ? error.message : String(error));
-        throw new Error("Failed to save or share file");
+        throw new Error(error instanceof Error ? error.message : "Failed to save or share file");
       }
     },
     onSuccess: () => {

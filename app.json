@@ -23,25 +23,13 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.hostelease.app",
-      "permissions": [
-        "READ_MEDIA_IMAGES",
-        "READ_MEDIA_VIDEO",
-        "READ_MEDIA_AUDIO"
-      ]
+      "package": "com.hostelease.app"
     },
     "web": {
       "output": "single",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      [
-        "expo-media-library",
-        {
-          "photosPermission": "Allow HostelEase to access your downloads",
-          "savePhotosPermission": "Allow HostelEase to save exported files to your device"
-        }
-      ],
       [
         "expo-splash-screen",
         {

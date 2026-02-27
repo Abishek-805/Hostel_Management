@@ -6,8 +6,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
 import Animated, { FadeInDown, FadeInRight } from 'react-native-reanimated';
 import { File, Paths } from 'expo-file-system';
+import { StorageAccessFramework } from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
-import * as MediaLibrary from 'expo-media-library';
 
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
@@ -82,20 +82,23 @@ export default function ManageSuggestionsScreen() {
 
             // Platform-specific handling
             if (Platform.OS === 'android') {
-                // Android: Direct save to Downloads folder
-                try {
-                    const { status } = await MediaLibrary.requestPermissionsAsync();
-                    if (status === 'granted') {
-                        const asset = await MediaLibrary.createAssetAsync(file.uri);
-                        await MediaLibrary.createAlbumAsync("Download", asset, false);
-                        Alert.alert("Success", "Menu suggestions saved to Downloads folder");
-                    } else {
-                        Alert.alert("Permission Denied", "Unable to save to Downloads. Grant storage permission in app settings.");
-                    }
-                } catch (mlError) {
-                    console.error("[Export] MediaLibrary error:", mlError);
-                    Alert.alert("Error", "Failed to save to Downloads folder");
+                const permissions = await StorageAccessFramework.requestDirectoryPermissionsAsync();
+                if (!permissions.granted) {
+                    Alert.alert("Permission required", "Please choose a folder to save the export.");
+                    return;
                 }
+
+                const uri = await StorageAccessFramework.createFileAsync(
+                    permissions.directoryUri,
+                    filename,
+                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                );
+
+                await StorageAccessFramework.writeAsStringAsync(uri, base64, {
+                    encoding: 'base64',
+                });
+
+                Alert.alert("Saved successfully", "Menu suggestions saved.");
             } else if (Platform.OS === 'ios') {
                 // iOS: Use share sheet
                 if (await Sharing.isAvailableAsync()) {
@@ -109,8 +112,7 @@ export default function ManageSuggestionsScreen() {
                 }
             }
         } catch (error) {
-            console.error("[Export] Menu suggestions export failed:", error instanceof Error ? error.message : String(error));
-            Alert.alert("Error", error instanceof Error ? error.message : "Failed to export suggestions");
+            Alert.alert("Export failed", error instanceof Error ? error.message : "Failed to export suggestions");
         } finally {
             setIsExporting(false);
         }

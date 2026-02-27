@@ -5,8 +5,8 @@ import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useQuery } from "@tanstack/react-query";
 import { Feather } from "@expo/vector-icons";
 import { File, Paths } from 'expo-file-system';
+import { StorageAccessFramework } from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
-import * as MediaLibrary from 'expo-media-library';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Animated, { FadeInDown, FadeInRight, FadeInUp, Layout, ZoomIn } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -200,20 +200,23 @@ export default function ManageAttendanceScreen() {
 
         // Platform-specific handling
         if (Platform.OS === 'android') {
-          // Android: Direct save to Downloads folder
-          try {
-            const { status } = await MediaLibrary.requestPermissionsAsync();
-            if (status === 'granted') {
-              const asset = await MediaLibrary.createAssetAsync(file.uri);
-              await MediaLibrary.createAlbumAsync("Download", asset, false);
-              Alert.alert("Success", "Report saved to Downloads folder");
-            } else {
-              Alert.alert("Permission Denied", "Unable to save to Downloads. Grant storage permission in app settings.");
-            }
-          } catch (mlError) {
-            console.error("[Export] MediaLibrary error:", mlError);
-            Alert.alert("Error", "Failed to save to Downloads folder");
+          const permissions = await StorageAccessFramework.requestDirectoryPermissionsAsync();
+          if (!permissions.granted) {
+            Alert.alert("Permission required", "Please choose a folder to save the report.");
+            return;
           }
+
+          const uri = await StorageAccessFramework.createFileAsync(
+            permissions.directoryUri,
+            fileName,
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+          );
+
+          await StorageAccessFramework.writeAsStringAsync(uri, base64, {
+            encoding: 'base64',
+          });
+
+          Alert.alert("Saved successfully", "Attendance report saved.");
         } else if (Platform.OS === 'ios') {
           // iOS: Use share sheet
           if (await Sharing.isAvailableAsync()) {
@@ -228,13 +231,10 @@ export default function ManageAttendanceScreen() {
         }
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
-        console.error("[Export] Attendance export failed:", errorMsg);
-        Alert.alert("Error", errorMsg || "Failed to download report.");
+        Alert.alert("Export failed", errorMsg || "Failed to download report.");
       }
     } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      console.error("[Export] Unexpected error:", errorMsg);
-      Alert.alert("Error", "An unexpected error occurred while exporting.");
+      Alert.alert("Export failed", "An unexpected error occurred while exporting.");
     } finally {
       setIsExporting(false);
     }
