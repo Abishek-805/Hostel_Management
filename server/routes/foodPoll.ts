@@ -1,42 +1,22 @@
 import express from 'express';
 import { authMiddleware } from '../middleware/auth';
 import ExcelJS from 'exceljs';
-import User from '../models/User';
 import Announcement from '../models/Announcement';
+import FoodPoll from '../models/FoodPoll';
 
 const router = express.Router();
 
-// In-memory storage for polls (replace with MongoDB model in production)
-interface FoodPoll {
-  _id: string;
-  hostelBlock: string;
-  title: string;
-  description?: string;
-  foods: Array<{
-    name: string;
-    votes: string[]; // User IDs
-    _id: string;
-  }>;
-  createdBy: string;
-  createdAt: Date;
-  updatedAt: Date;
-  isActive: boolean;
-}
-
-// Temporary in-memory storage
-const polls: Map<string, FoodPoll> = new Map();
-
-// Helper to generate ID
-const generateId = () => Math.random().toString(36).substr(2, 9);
-
-// Initialize with sample polls for testing
-const initializeSamplePolls = () => {
-  // Sample polls will be created on-demand per hostel block
-  // See GET / endpoint for auto-creation logic
-};
-
-// Initialize sample data
-initializeSamplePolls();
+const formatPollForClient = (poll: any, userId: string) => ({
+  ...(poll || {}),
+  foods: (poll?.foods || []).map((f: any) => ({
+    ...f,
+    voteCount: Array.isArray(f.votes) ? f.votes.length : 0,
+    hasVoted: Array.isArray(f.votes)
+      ? f.votes.some((v: any) => v.toString() === userId)
+      : false,
+    votes: [],
+  })),
+});
 
 // GET all polls for user's hostel block
 router.get('/', authMiddleware, async (req: any, res) => {
@@ -46,40 +26,11 @@ router.get('/', authMiddleware, async (req: any, res) => {
       return res.status(400).json({ error: 'User not assigned to a hostel block' });
     }
 
-    // Ensure sample poll exists for this hostel block
-    const samplePollId = `sample-poll-${hostelBlock}`;
-    if (!polls.has(samplePollId)) {
-      const samplePoll: FoodPoll = {
-        _id: samplePollId,
-        hostelBlock: hostelBlock,
-        title: "Vote",
-        description: "6 options • 1 votes",
-        foods: [
-          { _id: generateId(), name: "Dosa", votes: [] },
-          { _id: generateId(), name: "Idli", votes: [] },
-          { _id: generateId(), name: "Vada", votes: [] },
-        ],
-        createdBy: "admin",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        isActive: true,
-      };
-      polls.set(samplePollId, samplePoll);
-    }
+    const blockPolls = await FoodPoll.find({ hostelBlock })
+      .sort({ createdAt: -1 })
+      .lean();
 
-    const blockPolls = Array.from(polls.values())
-      .filter(p => p.hostelBlock === hostelBlock)
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .map(p => ({
-        ...p,
-        foods: p.foods.map(f => ({
-          ...f,
-          voteCount: f.votes.length,
-          hasVoted: f.votes.includes(req.user.id)
-        }))
-      }));
-
-    res.json(blockPolls);
+    res.json(blockPolls.map((poll: any) => formatPollForClient(poll, req.user.id)));
   } catch (error) {
     console.error('Error fetching polls:', error);
     res.status(500).json({ error: 'Server error' });
@@ -89,7 +40,7 @@ router.get('/', authMiddleware, async (req: any, res) => {
 // GET single poll by ID
 router.get('/:pollId', authMiddleware, async (req: any, res) => {
   try {
-    const poll = polls.get(req.params.pollId);
+    const poll = await FoodPoll.findById(req.params.pollId).lean();
     if (!poll) {
       return res.status(404).json({ error: 'Poll not found' });
     }
@@ -98,17 +49,7 @@ router.get('/:pollId', authMiddleware, async (req: any, res) => {
       return res.status(403).json({ error: 'Unauthorized' });
     }
 
-    const enhancedPoll = {
-      ...poll,
-      foods: poll.foods.map(f => ({
-        ...f,
-        voteCount: f.votes.length,
-        hasVoted: f.votes.includes(req.user.id),
-        votes: [] // Don't expose vote user IDs to client
-      }))
-    };
-
-    res.json(enhancedPoll);
+    res.json(formatPollForClient(poll, req.user.id));
   } catch (error) {
     console.error('Error fetching poll:', error);
     res.status(500).json({ error: 'Server error' });
@@ -129,34 +70,39 @@ router.post('/', authMiddleware, async (req: any, res) => {
       return res.status(400).json({ error: 'Title and at least one food item required' });
     }
 
-    const pollId = generateId();
-    const newPoll: FoodPoll = {
-      _id: pollId,
+    if (!hostelBlock) {
+      return res.status(400).json({ error: 'User not assigned to a hostel block' });
+    }
+
+    const sanitizedFoods = foods
+      .map((name: any) => (typeof name === 'string' ? name.trim() : ''))
+      .filter((name: string) => name.length > 0);
+
+    if (sanitizedFoods.length === 0) {
+      return res.status(400).json({ error: 'At least one valid food item required' });
+    }
+
+    const newPoll = await FoodPoll.create({
       hostelBlock,
       title,
       description: description || '',
-      foods: foods.map(name => ({
-        _id: generateId(),
+      foods: sanitizedFoods.map((name: string) => ({
         name: name.trim(),
-        votes: []
+        votes: [],
       })),
       createdBy: req.user.id,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      isActive: true
-    };
-
-    polls.set(pollId, newPoll);
+      isActive: true,
+    });
 
     // Automatically create an announcement for the poll
     try {
       const announcement = new Announcement({
         title: `📊 New Food Poll: ${title}`,
-        content: `Vote for your favorite dishes! ${foods.length} options available.`,
+        content: `Vote for your favorite dishes! ${sanitizedFoods.length} options available.`,
         isEmergency: false,
         isHoliday: false,
-        pollId: pollId,
-        hostelBlock: hostelBlock
+        pollId: newPoll._id.toString(),
+        hostelBlock,
       });
       await announcement.save();
     } catch (announcementError) {
@@ -164,15 +110,8 @@ router.post('/', authMiddleware, async (req: any, res) => {
       // Don't fail the poll creation if announcement fails
     }
 
-    res.json({
-      ...newPoll,
-      foods: newPoll.foods.map(f => ({
-        ...f,
-        voteCount: 0,
-        hasVoted: false,
-        votes: []
-      }))
-    });
+    const createdPoll = await FoodPoll.findById(newPoll._id).lean();
+    res.json(formatPollForClient(createdPoll, req.user.id));
   } catch (error) {
     console.error('Error creating poll:', error);
     res.status(500).json({ error: 'Server error' });
@@ -186,16 +125,12 @@ router.post('/:pollId/vote', authMiddleware, async (req: any, res) => {
     const pollId = req.params.pollId;
     const userId = req.user.id;
 
-    console.log(`Vote attempt - PollID: ${pollId}, FoodID: ${foodId}, UserID: ${userId}`);
-    console.log(`Available polls in memory: ${Array.from(polls.keys()).join(", ")}`);
-
     if (!foodId) {
       return res.status(400).json({ error: 'Food ID required' });
     }
 
-    const poll = polls.get(pollId);
+    const poll = await FoodPoll.findById(pollId);
     if (!poll) {
-      console.log(`Poll ${pollId} not found`);
       return res.status(404).json({ error: 'Poll not found' });
     }
 
@@ -203,39 +138,35 @@ router.post('/:pollId/vote', authMiddleware, async (req: any, res) => {
       return res.status(403).json({ error: 'Unauthorized' });
     }
 
-    const foodItem = poll.foods.find(f => f._id === foodId);
+    if (!poll.isActive) {
+      return res.status(400).json({ error: 'Poll is closed' });
+    }
+
+    const foodItem = poll.foods.find((f: any) => f._id.toString() === foodId);
     if (!foodItem) {
       return res.status(404).json({ error: 'Food item not found' });
     }
 
     // Check if user already voted for this food
-    const alreadyVoted = foodItem.votes.includes(userId);
+    const alreadyVoted = foodItem.votes.some((id: any) => id.toString() === userId);
     if (alreadyVoted) {
       // Remove vote (toggle)
-      foodItem.votes = foodItem.votes.filter(id => id !== userId);
+      foodItem.votes = foodItem.votes.filter((id: any) => id.toString() !== userId);
     } else {
       // Remove user's vote from other foods (one vote per poll per user)
-      poll.foods.forEach(f => {
-        f.votes = f.votes.filter(id => id !== userId);
+      poll.foods.forEach((f: any) => {
+        f.votes = f.votes.filter((id: any) => id.toString() !== userId);
       });
       // Add new vote
       foodItem.votes.push(userId);
     }
 
-    poll.updatedAt = new Date();
-    polls.set(pollId, poll);
+    poll.markModified('foods');
+    await poll.save();
 
-    const enhancedPoll = {
-      ...poll,
-      foods: poll.foods.map(f => ({
-        ...f,
-        voteCount: f.votes.length,
-        hasVoted: f.votes.includes(userId),
-        votes: []
-      }))
-    };
+    const refreshedPoll = await FoodPoll.findById(pollId).lean();
+    res.json(formatPollForClient(refreshedPoll, userId));
 
-    res.json(enhancedPoll);
   } catch (error) {
     console.error('Error voting:', error);
     res.status(500).json({ error: 'Server error' });
@@ -246,7 +177,7 @@ router.post('/:pollId/vote', authMiddleware, async (req: any, res) => {
 router.get('/:pollId/export', authMiddleware, async (req: any, res) => {
   try {
     const pollId = req.params.pollId;
-    const poll = polls.get(pollId);
+    const poll = await FoodPoll.findById(pollId).lean();
 
     if (!poll) {
       return res.status(404).json({ error: 'Poll not found' });
@@ -257,8 +188,10 @@ router.get('/:pollId/export', authMiddleware, async (req: any, res) => {
     }
 
     // Sort foods by vote count (highest to lowest)
-    const sortedFoods = [...poll.foods].sort((a, b) => b.votes.length - a.votes.length);
-    const totalVotes = sortedFoods.reduce((sum, f) => sum + f.votes.length, 0);
+    const sortedFoods = [...poll.foods].sort(
+      (a: any, b: any) => b.votes.length - a.votes.length,
+    );
+    const totalVotes = sortedFoods.reduce((sum: number, f: any) => sum + f.votes.length, 0);
 
     // Create Excel workbook
     const workbook = new ExcelJS.Workbook();
@@ -281,7 +214,7 @@ router.get('/:pollId/export', authMiddleware, async (req: any, res) => {
     };
 
     // Add data rows
-    sortedFoods.forEach((food, index) => {
+    sortedFoods.forEach((food: any, index: number) => {
       const percentage = totalVotes > 0 ? ((food.votes.length / totalVotes) * 100).toFixed(2) : '0.00';
       worksheet.addRow({
         rank: index + 1,
@@ -316,58 +249,36 @@ router.get('/:pollId/export', authMiddleware, async (req: any, res) => {
 // DELETE close poll (admin only)
 router.delete('/:pollId', authMiddleware, async (req: any, res) => {
   try {
-    console.log(`🔴 DELETE request received for pollId: ${req.params.pollId}`);
-    console.log(`🔴 User role: ${req.user?.role}, hostelBlock: ${req.user?.hostelBlock}`);
-    
     if (req.user?.role !== 'admin') {
-      console.log(`🔴 User is not admin, rejecting`);
       return res.status(403).json({ error: 'Only admins can close polls' });
     }
 
     const pollId = req.params.pollId;
-    console.log(`🔴 Attempting to close poll: ${pollId}`);
-    console.log(`🔴 Available polls in map: ${Array.from(polls.keys()).join(', ')}`);
-    
-    const poll = polls.get(pollId);
+    const poll = await FoodPoll.findById(pollId);
 
     if (!poll) {
-      console.log(`🔴 Poll ${pollId} not found in map`);
       return res.status(404).json({ error: 'Poll not found' });
     }
 
-    console.log(`🔴 Poll found. Current hostelBlock: ${poll.hostelBlock}, User hostelBlock: ${req.user?.hostelBlock}`);
-    
     if (poll.hostelBlock !== req.user?.hostelBlock) {
-      console.log(`🔴 Hostel block mismatch`);
       return res.status(403).json({ error: 'Unauthorized' });
     }
 
     poll.isActive = false;
-    poll.updatedAt = new Date();
-    polls.set(pollId, poll);
-
-    console.log(`🔴 Poll ${pollId} closed successfully. isActive is now: ${poll.isActive}`);
+    await poll.save();
 
     // Delete associated announcement when poll closes
     try {
       await Announcement.deleteOne({ pollId: pollId });
-      console.log(`🔴 Associated announcement deleted for poll: ${pollId}`);
     } catch (err) {
-      console.error(`🔴 Error deleting announcement for poll ${pollId}:`, err);
+      console.error(`Error deleting announcement for poll ${pollId}:`, err);
       // Don't fail the poll close if announcement deletion fails
     }
 
-    res.json({
-      ...poll,
-      foods: poll.foods.map(f => ({
-        ...f,
-        voteCount: f.votes.length,
-        hasVoted: f.votes.includes(req.user.id),
-        votes: []
-      }))
-    });
+    const closedPoll = await FoodPoll.findById(pollId).lean();
+    res.json(formatPollForClient(closedPoll, req.user.id));
   } catch (error) {
-    console.error('🔴 Error closing poll:', error);
+    console.error('Error closing poll:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });

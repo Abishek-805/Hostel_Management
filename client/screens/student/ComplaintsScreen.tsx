@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { StyleSheet, View, ScrollView, Pressable, Modal, TextInput, Alert, FlatList, Image } from "react-native";
+import { StyleSheet, View, ScrollView, Pressable, Modal, TextInput, Alert, FlatList, Image, RefreshControl } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useFocusEffect } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import Animated, { FadeInDown, FadeInRight, useSharedValue, withRepeat, withTiming, useAnimatedStyle, Easing } from 'react-native-reanimated';
@@ -94,10 +95,29 @@ export default function ComplaintsScreen() {
     }
   };
 
-  const { data: complaints, isLoading } = useQuery({
-    queryKey: ['complaints', 'user', user?.id],
+  const complaintsQueryKey = ['complaints', 'user', user?.id];
+
+  const { data: complaints, isLoading, refetch } = useQuery({
+    queryKey: complaintsQueryKey,
     enabled: !!user?.id,
+    refetchOnMount: true,
+    refetchOnReconnect: true,
+    refetchOnWindowFocus: true,
   });
+
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  };
+
+  useFocusEffect(
+    React.useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
 
   const createComplaintMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -105,7 +125,8 @@ export default function ComplaintsScreen() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['complaints'] });
+      queryClient.invalidateQueries({ queryKey: complaintsQueryKey });
+      queryClient.invalidateQueries({ queryKey: ['/complaints/user', user?.id] });
       setShowModal(false);
       resetForm();
       Alert.alert("Success", "Complaint submitted successfully!");
@@ -192,6 +213,7 @@ export default function ComplaintsScreen() {
         keyExtractor={(item) => item._id || item.id}
         contentContainerStyle={[styles.listContent, { paddingBottom: tabBarHeight + 100 }]}
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary.main} />}
         ListEmptyComponent={() => (
           <Animated.View entering={FadeInDown.delay(200)} style={[styles.emptyState, { backgroundColor: theme.backgroundDefault }]}>
             <Feather name="check-circle" size={48} color={theme.textSecondary} />

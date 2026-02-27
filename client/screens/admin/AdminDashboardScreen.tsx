@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState, useMemo } from "react";
 import { StyleSheet, View, ScrollView, Pressable, RefreshControl, Modal, FlatList, Animated as RNAnimated, Dimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useQuery } from "@tanstack/react-query";
@@ -72,12 +72,18 @@ export default function AdminDashboardScreen() {
     queryKey: ['/stats/admin'],
     queryFn: getQueryFn({ on401: 'throw' }),
     enabled: user?.role === 'admin',
-    staleTime: 0
+    staleTime: 0,
+    refetchOnMount: true,
+    refetchOnReconnect: true,
+    refetchOnWindowFocus: true,
   });
   const { data: hostelSettings } = useQuery({ 
     queryKey: ['hostel-settings', user?.hostelBlock], 
     queryFn: getQueryFn({ on401: 'returnNull' }),
-    enabled: !!user?.hostelBlock 
+    enabled: !!user?.hostelBlock,
+    refetchOnMount: true,
+    refetchOnReconnect: true,
+    refetchOnWindowFocus: true,
   });
   const [refreshing, setRefreshing] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -126,6 +132,12 @@ export default function AdminDashboardScreen() {
     await refetch();
     setRefreshing(false);
   };
+
+  useFocusEffect(
+    React.useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
 
   return (
     <ThemedView style={styles.container}>

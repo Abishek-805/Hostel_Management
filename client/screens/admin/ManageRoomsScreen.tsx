@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { StyleSheet, View, ScrollView, Pressable, Modal, TextInput, Alert, FlatList } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
@@ -123,6 +123,30 @@ export default function ManageRoomsScreen() {
     };
 
     const allRooms = Array.isArray(rooms) ? rooms : [];
+    const sortedRooms = useMemo(() => {
+        const extractRoomParts = (roomNumber: string) => {
+            const normalized = (roomNumber || '').trim();
+            const prefix = (normalized.match(/[A-Za-z]+/)?.[0] || '').toUpperCase();
+            const number = Number.parseInt(normalized.match(/\d+/)?.[0] || '0', 10);
+            return { prefix, number, normalized };
+        };
+
+        return [...allRooms].sort((a: any, b: any) => {
+            const roomA = extractRoomParts(a?.roomNumber ?? '');
+            const roomB = extractRoomParts(b?.roomNumber ?? '');
+
+            if (roomA.prefix !== roomB.prefix) {
+                return roomA.prefix.localeCompare(roomB.prefix);
+            }
+
+            if (roomA.number !== roomB.number) {
+                return roomA.number - roomB.number;
+            }
+
+            return roomA.normalized.localeCompare(roomB.normalized);
+        });
+    }, [allRooms]);
+
     const vacantRoomsList = allRooms.filter((r: any) => r.currentOccupancy === 0);
     const fullRoomsList = allRooms.filter((r: any) => r.currentOccupancy >= r.capacity);
     const partialRoomsList = allRooms.filter((r: any) => r.currentOccupancy > 0 && r.currentOccupancy < r.capacity);
@@ -181,7 +205,7 @@ export default function ManageRoomsScreen() {
                 </Animated.View>
 
                 <View style={styles.roomGrid}>
-                    {allRooms.map((room: any, index: number) => {
+                    {sortedRooms.map((room: any, index: number) => {
                         const statusColor = getRoomColor(room);
                         return (
                             <Animated.View entering={FadeInDown.delay(400 + (index * 20))} key={room._id} style={styles.roomCardContainer}>

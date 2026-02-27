@@ -1,8 +1,9 @@
 import React, { useState } from "react";
-import { StyleSheet, View, ScrollView, Pressable, Alert, Platform } from "react-native";
+import { StyleSheet, View, ScrollView, Pressable, Alert, Platform, RefreshControl } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useQuery } from "@tanstack/react-query";
+import { useFocusEffect } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
 import Animated, { FadeInDown, FadeInRight } from 'react-native-reanimated';
 import { File, Paths } from 'expo-file-system';
@@ -35,11 +36,27 @@ export default function ManageSuggestionsScreen() {
 
     const [selectedCategory, setSelectedCategory] = useState<MealCategory>("breakfast");
     const [isExporting, setIsExporting] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
 
     const { data: suggestions, isLoading, refetch } = useQuery({
         queryKey: ['menu-suggestions', `?hostelBlock=${user?.hostelBlock || ''}&week=current`],
         enabled: !!user?.hostelBlock,
+        refetchOnMount: true,
+        refetchOnReconnect: true,
+        refetchOnWindowFocus: true,
     });
+
+    const onRefresh = async () => {
+        setRefreshing(true);
+        await refetch();
+        setRefreshing(false);
+    };
+
+    useFocusEffect(
+        React.useCallback(() => {
+            refetch();
+        }, [refetch])
+    );
 
     const filteredSuggestions = (suggestions as any[])?.filter(s => s.category === selectedCategory) || [];
 
@@ -128,6 +145,7 @@ export default function ManageSuggestionsScreen() {
                     { paddingTop: headerHeight + Spacing.lg, paddingBottom: tabBarHeight + 100 },
                 ]}
                 showsVerticalScrollIndicator={false}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary.main} />}
             >
                 <Animated.View entering={FadeInDown.delay(100)} style={styles.headerSection}>
                     <ThemedText type="h1">Food Suggestions</ThemedText>

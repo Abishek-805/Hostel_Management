@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { StyleSheet, View, ScrollView, Pressable, Alert, Platform, Modal, ActivityIndicator, Dimensions, Image } from "react-native";
+import { StyleSheet, View, ScrollView, Pressable, Alert, Platform, Modal, ActivityIndicator, Dimensions, Image, RefreshControl } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { useFocusEffect } from "@react-navigation/native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Location from "expo-location";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -133,32 +134,71 @@ export default function AttendanceScreen() {
     }
   }, [showHostelPicker]);
 
-  const { data: todayAttendanceData, isLoading } = useQuery({
+  const { data: todayAttendanceData, isLoading, refetch: refetchTodayAttendance } = useQuery({
     queryKey: ["attendance/check", user?.id || (user as any)?._id, new Date().toISOString().split('T')[0]],
+    refetchOnMount: true,
+    refetchOnReconnect: true,
+    refetchOnWindowFocus: true,
   });
   const todayAttendance = todayAttendanceData as any;
 
-  const { data: stats } = useQuery({
+  const { data: stats, refetch: refetchAttendanceStats } = useQuery({
     queryKey: ["attendance/stats", user?.id || (user as any)?._id],
     enabled: !!user,
+    refetchOnMount: true,
+    refetchOnReconnect: true,
+    refetchOnWindowFocus: true,
   });
 
   // Fetch attendance for the month
-  const { data: monthAttendance } = useQuery<Attendance[]>({
+  const { data: monthAttendance, refetch: refetchMonthAttendance } = useQuery<Attendance[]>({
     queryKey: ["attendances", "user", user?.id],
     enabled: !!user?.id,
+    refetchOnMount: true,
+    refetchOnReconnect: true,
+    refetchOnWindowFocus: true,
   });
 
-  const { data: leaves } = useQuery<LeaveRequest[]>({
+  const { data: leaves, refetch: refetchLeaves } = useQuery<LeaveRequest[]>({
     queryKey: ["leave-requests", "user", user?.id],
     enabled: !!user?.id,
+    refetchOnMount: true,
+    refetchOnReconnect: true,
+    refetchOnWindowFocus: true,
   });
 
-  const { data: hostelSettings } = useQuery({
+  const { data: hostelSettings, refetch: refetchHostelSettings } = useQuery({
     queryKey: ['hostel-settings', user?.hostelBlock],
     queryFn: getQueryFn({ on401: 'returnNull' }),
     enabled: !!user?.hostelBlock,
+    refetchOnMount: true,
+    refetchOnReconnect: true,
+    refetchOnWindowFocus: true,
   });
+
+  const [refreshing, setRefreshing] = useState(false);
+
+  const refetchAttendanceData = React.useCallback(async () => {
+    await Promise.all([
+      refetchTodayAttendance(),
+      refetchAttendanceStats(),
+      refetchMonthAttendance(),
+      refetchLeaves(),
+      refetchHostelSettings(),
+    ]);
+  }, [refetchTodayAttendance, refetchAttendanceStats, refetchMonthAttendance, refetchLeaves, refetchHostelSettings]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refetchAttendanceData();
+    setRefreshing(false);
+  };
+
+  useFocusEffect(
+    React.useCallback(() => {
+      refetchAttendanceData();
+    }, [refetchAttendanceData])
+  );
 
   const calculatedStats = useMemo(() => {
     const today = new Date();
@@ -744,7 +784,10 @@ export default function AttendanceScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingTop: headerHeight + Spacing.lg, paddingBottom: tabBarHeight + Spacing.xl }]}>
+      <ScrollView
+        contentContainerStyle={[styles.scrollContent, { paddingTop: headerHeight + Spacing.lg, paddingBottom: tabBarHeight + Spacing.xl }]}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary.main} />}
+      >
         {!!calculatedStats.activeLeaveSession && (
           <View style={[styles.leaveBanner, { backgroundColor: 'rgba(16, 185, 129, 0.1)', borderColor: 'rgba(16, 185, 129, 0.3)' }]}>
             <View style={[styles.leaveBannerIcon, { backgroundColor: 'rgba(16, 185, 129, 0.2)' }]}>

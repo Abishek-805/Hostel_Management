@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from "react";
-import { StyleSheet, View, ScrollView, Pressable, Modal, TextInput, Alert, Image, Animated as RNAnimated, Platform, ActivityIndicator } from "react-native";
+import { StyleSheet, View, ScrollView, Pressable, Modal, TextInput, Alert, Image, Animated as RNAnimated, Platform, ActivityIndicator, RefreshControl } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import { useNavigation, CommonActions } from "@react-navigation/native";
+import { useNavigation, CommonActions, useFocusEffect } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import Animated, { FadeInDown, FadeInRight, useSharedValue, withRepeat, withTiming, useAnimatedStyle, Easing } from 'react-native-reanimated';
@@ -178,8 +178,10 @@ export default function StudentProfileScreen() {
   const lunchState = getMealState("lunch");
   const dinnerState = getMealState("dinner");
 
+  const userProfileQueryKey = ['userProfile', authUser?.id];
+
   const { data: user, refetch, isLoading: queryLoading } = useQuery({
-    queryKey: ['user', authUser?.id],
+    queryKey: userProfileQueryKey,
     queryFn: async () => {
       if (!authUser?.id) return null;
       const res = await apiRequest("GET", `/users/${authUser.id}`);
@@ -187,7 +189,24 @@ export default function StudentProfileScreen() {
     },
     initialData: authUser,
     enabled: !!authUser?.id,
+    refetchOnMount: true,
+    refetchOnReconnect: true,
+    refetchOnWindowFocus: true,
   });
+
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  };
+
+  useFocusEffect(
+    React.useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
 
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showSupportModal, setShowSupportModal] = useState(false);
@@ -262,7 +281,12 @@ export default function StudentProfileScreen() {
       console.log("✅ Server responded successfully");
 
       await updateUser({ profileImage: imageBase64 });
-      queryClient.invalidateQueries({ queryKey: ['user', authUser?.id] });
+      queryClient.setQueryData(userProfileQueryKey, (old: any) => ({
+        ...(old || {}),
+        profileImage: imageBase64,
+      }));
+      queryClient.invalidateQueries({ queryKey: userProfileQueryKey });
+      await refetch();
 
       // Successfully updated, can clear loading state
       setUploadStatus(null);
@@ -354,7 +378,12 @@ export default function StudentProfileScreen() {
       });
 
       await updateUser({ phone: newPhone });
-      queryClient.invalidateQueries({ queryKey: ['user', authUser?.id] });
+      queryClient.setQueryData(userProfileQueryKey, (old: any) => ({
+        ...(old || {}),
+        phone: newPhone,
+      }));
+      queryClient.invalidateQueries({ queryKey: userProfileQueryKey });
+      await refetch();
 
       setIsLoading(false);
       Alert.alert("Success", "Phone number updated successfully!");
@@ -481,6 +510,7 @@ export default function StudentProfileScreen() {
           { paddingTop: headerHeight + Spacing.lg, paddingBottom: tabBarHeight + 100 },
         ]}
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary.main} />}
       >
         {/* Profile Card Animation */}
         <Animated.View entering={FadeInDown.delay(100).springify()} style={[styles.profileCard, { backgroundColor: theme.backgroundDefault }]}>

@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from "react";
 import { StyleSheet, View, ScrollView, Pressable, RefreshControl, Modal, FlatList, Dimensions, Animated as RNAnimated, Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -104,32 +104,50 @@ export default function StudentDashboardScreen() {
   const { data: attendanceData, refetch: refetchAttendance } = useQuery<AttendanceCheckResponse>({
     queryKey: ['/attendances/check', user?.id, today],
     enabled: !!user?.id,
+    refetchOnMount: true,
+    refetchOnReconnect: true,
+    refetchOnWindowFocus: true,
   });
 
   const { data: leaveRequests, refetch: refetchLeaves } = useQuery({
     queryKey: ['leave-requests', 'user', user?.id],
     enabled: !!user?.id,
+    refetchOnMount: true,
+    refetchOnReconnect: true,
+    refetchOnWindowFocus: true,
   });
 
   const { data: complaints, refetch: refetchComplaints } = useQuery({
     queryKey: ['/complaints/user', user?.id],
     enabled: !!user?.id,
+    refetchOnMount: true,
+    refetchOnReconnect: true,
+    refetchOnWindowFocus: true,
   });
 
   const { data: announcements, refetch: refetchAnnouncements } = useQuery({
     queryKey: ['/announcements'],
+    refetchOnMount: true,
+    refetchOnReconnect: true,
+    refetchOnWindowFocus: true,
   });
 
   const { data: stats, refetch: refetchStats } = useQuery({
     queryKey: ['/stats/admin'],
     queryFn: getQueryFn({ on401: 'returnNull' }),
-    enabled: user?.role === 'admin'
+    enabled: user?.role === 'admin',
+    refetchOnMount: true,
+    refetchOnReconnect: true,
+    refetchOnWindowFocus: true,
   });
 
   const { data: hostelSettings } = useQuery({
     queryKey: ['hostel-settings', user?.hostelBlock],
     queryFn: getQueryFn({ on401: 'returnNull' }),
     enabled: !!user?.hostelBlock,
+    refetchOnMount: true,
+    refetchOnReconnect: true,
+    refetchOnWindowFocus: true,
   });
 
   const activeSession = hostelSettings as any;
@@ -153,16 +171,27 @@ export default function StudentDashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [hasUnread, setHasUnread] = useState(false);
 
-  const onRefresh = async () => {
-    setRefreshing(true);
+  const refetchDashboardData = React.useCallback(async () => {
     await Promise.all([
       refetchAttendance(),
       refetchLeaves(),
       refetchComplaints(),
       refetchAnnouncements(),
+      user?.role === 'admin' ? refetchStats() : Promise.resolve(),
     ]);
+  }, [refetchAttendance, refetchLeaves, refetchComplaints, refetchAnnouncements, refetchStats, user?.role]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refetchDashboardData();
     setRefreshing(false);
   };
+
+  useFocusEffect(
+    React.useCallback(() => {
+      refetchDashboardData();
+    }, [refetchDashboardData])
+  );
 
   // Status Logic
   const isAttendanceMarked = !!attendanceData?.marked;

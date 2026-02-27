@@ -1,9 +1,10 @@
 import React, { useState } from "react";
-import { StyleSheet, View, ScrollView, Pressable, Modal, TextInput, Alert, FlatList, Linking } from "react-native";
+import { StyleSheet, View, ScrollView, Pressable, Modal, TextInput, Alert, FlatList, Linking, RefreshControl } from "react-native";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useFocusEffect } from "@react-navigation/native";
 import { Feather } from "@expo/vector-icons";
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
@@ -44,7 +45,27 @@ export default function ComplaintManagementScreen() {
   const [newStatus, setNewStatus] = useState<ComplaintStatus>("submitted");
   const [adminRemarks, setAdminRemarks] = useState("");
 
-  const { data: complaints, isLoading } = useQuery({ queryKey: ['/complaints'], queryFn: getQueryFn({ on401: 'returnNull' }) });
+  const { data: complaints, isLoading, refetch } = useQuery({
+    queryKey: ['/complaints'],
+    queryFn: getQueryFn({ on401: 'returnNull' }),
+    refetchOnMount: true,
+    refetchOnReconnect: true,
+    refetchOnWindowFocus: true,
+  });
+
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  };
+
+  useFocusEffect(
+    React.useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
 
   const updateComplaintMutation = useMutation({
     mutationFn: async ({ id, status, remarks }: { id: string; status: string; remarks?: string }) => {
@@ -90,6 +111,7 @@ export default function ComplaintManagementScreen() {
       </Animated.View>
 
       <FlatList data={filteredComplaints} keyExtractor={(item) => item.id || item._id} contentContainerStyle={[styles.listContent, { paddingBottom: tabBarHeight + 100 }]} showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary.main} />}
         ListEmptyComponent={() => (
           <Animated.View entering={FadeInDown.delay(200)} style={[styles.emptyState, { backgroundColor: theme.backgroundDefault }]}>
             <Feather name="check-circle" size={48} color={theme.textSecondary} />
