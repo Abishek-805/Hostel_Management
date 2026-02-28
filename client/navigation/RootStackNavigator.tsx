@@ -6,11 +6,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import AuthScreen from "@/screens/AuthScreen";
 import StudentTabNavigator from "@/navigation/StudentTabNavigator";
 import AdminTabNavigator from "@/navigation/AdminTabNavigator";
+import GatekeeperTabNavigator from "@/navigation/GatekeeperTabNavigator";
 
 export type RootStackParamList = {
   Auth: undefined;
   StudentMain: undefined;
   AdminMain: undefined;
+  GatekeeperMain: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -31,6 +33,12 @@ export default function RootStackNavigator() {
         <Stack.Screen
           name="AdminMain"
           component={AdminTabNavigator}
+          options={{ headerShown: false }}
+        />
+      ) : user?.role === "gatekeeper" ? (
+        <Stack.Screen
+          name="GatekeeperMain"
+          component={GatekeeperTabNavigator}
           options={{ headerShown: false }}
         />
       ) : (

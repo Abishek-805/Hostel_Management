@@ -3,7 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { apiRequest, queryClient, setTokenExpiredCallback } from "@/lib/query-client";
 import { logger } from "@/lib/logger";
 
-type UserRole = "student" | "admin";
+type UserRole = "student" | "admin" | "gatekeeper";
 
 interface User {
   id: string;
@@ -13,6 +13,7 @@ interface User {
   role: UserRole;
   roomNumber?: string;
   hostelBlock?: string;
+  gateNumber?: number;
   profileImage?: string; // ✅ ADDED
 }
 
@@ -24,6 +25,8 @@ interface RegisterData {
   role: UserRole;
   roomNumber?: string;
   hostelBlock?: string;
+  gateNumber?: number;
+  gateCode?: string;
 }
 
 interface AuthContextType {

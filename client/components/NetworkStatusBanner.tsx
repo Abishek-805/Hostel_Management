@@ -6,16 +6,21 @@ import { Colors, Spacing } from "@/constants/theme";
 
 interface NetworkStatusBannerProps {
   isOffline: boolean;
+  isBackendDisconnected?: boolean;
 }
 
-export function NetworkStatusBanner({ isOffline }: NetworkStatusBannerProps) {
-  if (!isOffline) return null;
+export function NetworkStatusBanner({ isOffline, isBackendDisconnected = false }: NetworkStatusBannerProps) {
+  if (!isOffline && !isBackendDisconnected) return null;
+
+  const message = isOffline
+    ? "You are offline. Changes may not sync until connection returns."
+    : "Backend not connected";
 
   return (
     <View style={styles.container}>
-      <Feather name="wifi-off" size={14} color="#FFF" />
+      <Feather name={isOffline ? "wifi-off" : "alert-triangle"} size={14} color="#FFF" />
       <ThemedText type="caption" style={styles.text}>
-        You are offline. Changes may not sync until connection returns.
+        {message}
       </ThemedText>
     </View>
   );

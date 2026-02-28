@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/User";
 import Room from "../models/Room";
+import GateConfig from "../models/GateConfig";
 import { authMiddleware } from "../middleware/auth";
 import { JWT_SECRET } from "../config/env";
 
@@ -37,14 +38,46 @@ router.post("/register", async (req, res) => {
       role,
       roomNumber,
       hostelBlock,
+      gateNumber,
+      gateCode,
     } = req.body;
 
     console.log("Register Attempt:", req.body); // DEBUG LOG
 
-    if (!registerId || !password || !name || !role || !hostelBlock) {
-      console.log("Missing fields:", { registerId, password, name, role, hostelBlock });
+    const requiresHostelBlock = role === 'student' || role === 'admin';
+    if (!registerId || !password || !name || !role || (requiresHostelBlock && !hostelBlock)) {
+      console.log("Missing fields:", { registerId, password, name, role, hostelBlock, gateNumber });
       return res.status(400).json({ error: "Missing required fields" });
     }
+    let normalizedGateNumber: number | undefined;
+    if (role === 'gatekeeper') {
+      normalizedGateNumber = Number(gateNumber);
+      if (!Number.isInteger(normalizedGateNumber) || normalizedGateNumber < 1 || normalizedGateNumber > 11) {
+        return res.status(400).json({ error: 'Gate Number must be between 1 and 11' });
+      }
+      if (!gateCode || typeof gateCode !== 'string') {
+        return res.status(400).json({ error: 'Gate Code is required for gatekeeper registration' });
+      }
+
+      const gateConfig = await GateConfig.findOne({ gateNumber: normalizedGateNumber });
+      if (!gateConfig) {
+        return res.status(400).json({ error: 'Invalid gate number configuration' });
+      }
+
+      if (gateConfig.gateCode.trim().toLowerCase() !== gateCode.trim().toLowerCase()) {
+        return res.status(403).json({ error: 'Invalid gate code for selected gate number' });
+      }
+
+      if (gateConfig.assigned) {
+        return res.status(409).json({ error: `Gate ${normalizedGateNumber} is already assigned` });
+      }
+
+      const existingGatekeeper = await User.findOne({ role: 'gatekeeper', gateNumber: normalizedGateNumber });
+      if (existingGatekeeper) {
+        return res.status(409).json({ error: `Gatekeeper already registered for Gate ${normalizedGateNumber}` });
+      }
+    }
+
 
     const existingUser = await User.findOne({ registerId: buildRegisterIdRegex(registerId.trim()) });
     if (existingUser) {
@@ -81,9 +114,14 @@ router.post("/register", async (req, res) => {
       name,
       phone,
       role,
+      gateNumber: role === 'gatekeeper' ? normalizedGateNumber : undefined,
       roomNumber: role === 'student' ? roomNumber : undefined,
-      hostelBlock,
+      hostelBlock: role === 'gatekeeper' ? `Gate ${normalizedGateNumber}` : hostelBlock,
     });
+    if (role === 'gatekeeper' && normalizedGateNumber) {
+      await GateConfig.updateOne({ gateNumber: normalizedGateNumber }, { $set: { assigned: true } });
+    }
+
 
     console.log("User created successfully:", user.registerId);
 
@@ -106,6 +144,7 @@ router.post("/register", async (req, res) => {
         name: user.name,
         phone: user.phone,
         role: user.role,
+        gateNumber: user.gateNumber,
         roomNumber: user.roomNumber,
         hostelBlock: user.hostelBlock,
         profileImage: user.profileImage,
@@ -181,6 +220,7 @@ router.post("/login", async (req, res) => {
         name: user.name,
         phone: user.phone,
         role: user.role,
+        gateNumber: user.gateNumber,
         roomNumber: user.roomNumber,
         hostelBlock: user.hostelBlock,
         profileImage: user.profileImage,

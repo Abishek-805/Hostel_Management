@@ -41,6 +41,23 @@ interface StatCardProps {
   showAlert?: boolean;
 }
 
+type MealCountDailyResponse = {
+  date: string;
+  breakfast: number;
+  lunch: number;
+  dinner: number;
+  lateStudents: number;
+  outsideNow: number;
+  returningBeforeDinner: number;
+};
+
+function toIsoDateLocal(date: Date): string {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function StatCard({ icon, title, value, color, onPress, showAlert }: StatCardProps) {
   const { theme } = useTheme();
   return (
@@ -85,6 +102,24 @@ export default function AdminDashboardScreen() {
     refetchOnReconnect: true,
     refetchOnWindowFocus: true,
   });
+  const todayDate = useMemo(() => toIsoDateLocal(new Date()), []);
+  const tomorrowDate = useMemo(() => {
+    const value = new Date();
+    value.setDate(value.getDate() + 1);
+    return toIsoDateLocal(value);
+  }, []);
+  const { data: todayMealData } = useQuery({
+    queryKey: [`/meal-count/daily?date=${todayDate}`],
+    queryFn: getQueryFn({ on401: "throw" }),
+    enabled: user?.role === "admin",
+    staleTime: 1000 * 60,
+  });
+  const { data: tomorrowMealData } = useQuery({
+    queryKey: [`/meal-count/daily?date=${tomorrowDate}`],
+    queryFn: getQueryFn({ on401: "throw" }),
+    enabled: user?.role === "admin",
+    staleTime: 1000 * 60,
+  });
   const [refreshing, setRefreshing] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
 
@@ -125,6 +160,8 @@ export default function AdminDashboardScreen() {
   const logoAnimatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: logoScale.value }] }));
 
   const adminStats = stats as any || { studentCount: 0, attendanceCount: 0, pendingLeaveCount: 0, openComplaintCount: 0, pendingRoomChanges: 0, vacantRoomsCount: 0, totalRoomsCount: 0 };
+  const todayMeals = (todayMealData as MealCountDailyResponse | null) || null;
+  const tomorrowMeals = (tomorrowMealData as MealCountDailyResponse | null) || null;
   const hasNotifications = adminStats.pendingLeaveCount > 0 || adminStats.openComplaintCount > 0 || adminStats.pendingRoomChanges > 0;
 
   const onRefresh = async () => {
@@ -212,6 +249,45 @@ export default function AdminDashboardScreen() {
           <Pressable style={[styles.actionCard, { backgroundColor: theme.backgroundSecondary }]} onPress={() => navigation.getParent()?.navigate("ManageTab", { screen: "ManageLeaveWindow" })}><View style={[styles.actionIcon, { backgroundColor: Colors.status.warning + '20' }]}><Feather name="navigation" size={24} color={Colors.status.warning} /></View><ThemedText type="body" style={styles.actionText}>Holiday</ThemedText></Pressable>
           <Pressable style={[styles.actionCard, { backgroundColor: theme.backgroundSecondary }]} onPress={() => navigation.getParent()?.navigate("ManageTab", { screen: "ManageAnnouncements" })}><View style={[styles.actionIcon, { backgroundColor: Colors.status.error + '20' }]}><Feather name="volume-2" size={24} color={Colors.status.error} /></View><ThemedText type="body" style={styles.actionText}>Broadcasts</ThemedText></Pressable>
         </Animated.View>
+
+        <ThemedText type="h3" style={styles.sectionTitle}>🍽 Meal Planning</ThemedText>
+        <Animated.View entering={FadeInDown.delay(350)} style={[styles.mealCard, { backgroundColor: theme.backgroundSecondary }]}>
+          <View style={styles.mealRow}>
+            <ThemedText type="body" style={styles.mealTitle}>Today</ThemedText>
+            <View style={[styles.mealChip, { backgroundColor: Colors.primary.main + "18" }]}>
+              <ThemedText type="caption" style={{ color: Colors.primary.main }}>Live</ThemedText>
+            </View>
+          </View>
+          <View style={styles.mealStatsRow}>
+            <View style={styles.mealStatItem}><ThemedText type="caption" secondary>Breakfast</ThemedText><ThemedText type="body">{todayMeals?.breakfast ?? "--"}</ThemedText></View>
+            <View style={styles.mealStatItem}><ThemedText type="caption" secondary>Lunch</ThemedText><ThemedText type="body">{todayMeals?.lunch ?? "--"}</ThemedText></View>
+            <View style={styles.mealStatItem}><ThemedText type="caption" secondary>Dinner</ThemedText><ThemedText type="body">{todayMeals?.dinner ?? "--"}</ThemedText></View>
+          </View>
+
+          <View style={styles.mealRow}>
+            <ThemedText type="body" style={styles.mealTitle}>Tomorrow</ThemedText>
+            <View style={[styles.mealChip, { backgroundColor: Colors.secondary.main + "18" }]}>
+              <ThemedText type="caption" style={{ color: Colors.secondary.main }}>Forecast</ThemedText>
+            </View>
+          </View>
+          <View style={styles.mealStatsRow}>
+            <View style={styles.mealStatItem}><ThemedText type="caption" secondary>Breakfast</ThemedText><ThemedText type="body">{tomorrowMeals?.breakfast ?? "--"}</ThemedText></View>
+            <View style={styles.mealStatItem}><ThemedText type="caption" secondary>Lunch</ThemedText><ThemedText type="body">{tomorrowMeals?.lunch ?? "--"}</ThemedText></View>
+            <View style={styles.mealStatItem}><ThemedText type="caption" secondary>Dinner</ThemedText><ThemedText type="body">{tomorrowMeals?.dinner ?? "--"}</ThemedText></View>
+          </View>
+
+          <View style={styles.mealFootRow}>
+            <View style={[styles.mealChip, { backgroundColor: Colors.status.error + "18" }]}>
+              <ThemedText type="caption" style={{ color: Colors.status.error }}>Outside now: {todayMeals?.outsideNow ?? "--"}</ThemedText>
+            </View>
+            <View style={[styles.mealChip, { backgroundColor: Colors.status.warning + "18" }]}>
+              <ThemedText type="caption" style={{ color: Colors.status.warning }}>Late returns: {todayMeals?.lateStudents ?? "--"}</ThemedText>
+            </View>
+            <View style={[styles.mealChip, { backgroundColor: Colors.status.success + "18" }]}>
+              <ThemedText type="caption" style={{ color: Colors.status.success }}>Before dinner: {todayMeals?.returningBeforeDinner ?? "--"}</ThemedText>
+            </View>
+          </View>
+        </Animated.View>
       </ScrollView>
 
       <Modal visible={showNotifications} animationType="fade" transparent onRequestClose={() => setShowNotifications(false)} accessibilityViewIsModal={true}>
@@ -269,4 +345,46 @@ const styles = StyleSheet.create({
   notificationPopup: { position: 'absolute', right: Spacing.lg, width: width * 0.85, borderRadius: BorderRadius.md, padding: Spacing.md, ...Shadows.modal },
   popupHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: Spacing.md },
   notifItem: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: BorderRadius.sm, marginBottom: 8 }
+  ,
+  mealCard: {
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginTop: Spacing.xs,
+    marginBottom: Spacing.xl,
+    gap: Spacing.sm,
+    ...Shadows.card,
+  },
+  mealRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  mealTitle: {
+    fontWeight: '700',
+  },
+  mealStatsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: Spacing.sm,
+  },
+  mealStatItem: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: BorderRadius.sm,
+    padding: Spacing.sm,
+    backgroundColor: 'rgba(0,0,0,0.03)',
+    justifyContent: 'center',
+  },
+  mealFootRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.xs,
+  },
+  mealChip: {
+    minHeight: 24,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  }
 });

@@ -13,7 +13,7 @@ import { Colors, Spacing, BorderRadius } from "@/constants/theme";
 import StudentDashboardScreen from "@/screens/student/StudentDashboardScreen";
 import MenuScreen from "@/screens/student/MenuScreen";
 import AttendanceScreen from "@/screens/student/AttendanceScreen";
-import RequestsScreen from "@/screens/student/RequestsScreen";
+import StudentGateScreen from "@/screens/student/StudentGateScreen";
 import StudentProfileScreen from "@/screens/student/StudentProfileScreen";
 import AnnouncementsScreen from "@/screens/student/AnnouncementsScreen";
 import ComplaintsScreen from "@/screens/student/ComplaintsScreen";
@@ -34,7 +34,7 @@ export type StudentStackParamList = {
   Complaints: undefined;
   Menu: undefined;
   Attendance: undefined;
-  Requests: undefined;
+  Gate: undefined;
   Profile: undefined;
   RoomDetails: undefined;
   FoodPoll: undefined;
@@ -139,10 +139,10 @@ function RequestsStack() {
   return (
     <Stack.Navigator screenOptions={screenOptions}>
       <Stack.Screen
-        name="Requests"
-        component={RequestsScreen}
+        name="Gate"
+        component={StudentGateScreen}
         options={{
-          headerTitle: "Leave Requests",
+          headerTitle: "Gate",
           headerLeft: (props) => <BackToHomeButton {...props} />
         }}
       />
@@ -239,9 +239,9 @@ export default function StudentTabNavigator() {
         name="RequestsTab"
         component={RequestsStack}
         options={{
-          title: "Requests",
+          title: "Gate",
           tabBarIcon: ({ color, size }) => (
-            <Feather name="file-text" size={size} color={color} />
+            <Feather name="shield" size={size} color={color} />
           ),
         }}
       />

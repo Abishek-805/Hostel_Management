@@ -59,9 +59,16 @@ function parseHttpStatus(error: unknown): number | null {
   return Number.parseInt(match[1], 10);
 }
 
+function shouldRetryHttpStatus(status: number): boolean {
+  if (status === 429) return true;
+  if (status >= 500) return true;
+  if ([400, 401, 403, 404, 409, 410, 422].includes(status)) return false;
+  return false;
+}
+
 function isRetriableError(error: unknown): boolean {
   const status = parseHttpStatus(error);
-  if (status) return status >= 500 || status === 429;
+  if (status) return shouldRetryHttpStatus(status);
   if (!(error instanceof Error)) return false;
   return /network|failed to fetch|timeout|request failed/i.test(error.message);
 }
@@ -205,6 +212,7 @@ export const queryClient = new QueryClient({
     queries: {
       queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
+      retryOnMount: false,
       refetchOnWindowFocus: false,
       refetchOnReconnect: true,
       networkMode: "online",

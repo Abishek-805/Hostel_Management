@@ -31,6 +31,9 @@ import { Colors, Spacing, BorderRadius, Shadows } from "@/constants/theme";
 import { StudentStackParamList } from "@/navigation/StudentTabNavigator";
 
 type NavigationProp = NativeStackNavigationProp<StudentStackParamList>;
+type ParentTabNavigation = {
+  navigate: (tab: string, params?: { screen?: string; params?: Record<string, unknown> }) => void;
+};
 const { width } = Dimensions.get('window');
 
 // Blinking Dot Component (reused for consistency)
@@ -372,10 +375,11 @@ export default function StudentDashboardScreen() {
                     onPress={() => {
                       // If it's a poll announcement, navigate to Food Poll instead
                       if (announcement.pollId) {
-                        navigation.navigate("MenuTab", { screen: "Menu", params: { initial: false } } as any);
+                        const parentNavigation = navigation.getParent() as unknown as ParentTabNavigation | undefined;
+                        parentNavigation?.navigate("MenuTab", { screen: "Menu", params: { initial: false } });
                         // Then navigate to FoodPoll within the MenuTab stack
                         setTimeout(() => {
-                          navigation.navigate("MenuTab", { screen: "FoodPoll" } as any);
+                          parentNavigation?.navigate("MenuTab", { screen: "FoodPoll" });
                         }, 100);
                       } else {
                         navigation.navigate("Announcements");

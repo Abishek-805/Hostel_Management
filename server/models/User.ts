@@ -4,8 +4,9 @@ export interface IUser extends Document {
   name: string;
   registerId: string;
   password: string;
-  role: "student" | "admin";
+  role: "student" | "admin" | "gatekeeper";
   hostelBlock: string;
+  gateNumber?: number;
   roomNumber?: string;
   phone?: string;
   profileImage?: string;
@@ -18,12 +19,17 @@ const UserSchema = new Schema({
   password: { type: String, required: true },
   role: {
     type: String,
-    enum: ["student", "admin"],
+    enum: ["student", "admin", "gatekeeper"],
     required: true,
   },
   hostelBlock: {
     type: String,
     required: true, // 🔥 VERY IMPORTANT
+  },
+  gateNumber: {
+    type: Number,
+    min: 1,
+    max: 11,
   },
   roomNumber: { type: String },
   phone: { type: String },

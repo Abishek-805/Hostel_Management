@@ -17,6 +17,7 @@ import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
 import { suppressProductionConsoleNoise } from "@/lib/logger";
 import { captureException, initMonitoring, trackEvent } from "@/lib/monitoring";
 import { useNetworkStatus } from "@/lib/query-client";
+import { buildApiUrl } from "@/config/api";
 
 // Suppress known deprecation warnings from react-native-web that are handled by React Navigation
 if (Platform.OS === 'web') {
@@ -42,7 +43,7 @@ if (Platform.OS === 'web') {
 
   // Global error handler for native errors
   const originalHandler = ErrorUtils.getGlobalHandler();
-  ErrorUtils.setGlobalHandler((error: any, fatal: boolean) => {
+  ErrorUtils.setGlobalHandler((error: any, fatal?: boolean) => {
     const errorString = error?.message || error?.toString() || '';
     const stackString = error?.stack || '';
     
@@ -85,9 +86,35 @@ if (Platform.OS === "web") {
 function AppContent() {
   const { isLoading } = useAuth();
   const isOffline = useNetworkStatus();
+  const [isBackendDisconnected, setIsBackendDisconnected] = React.useState(false);
 
   React.useEffect(() => {
     void trackEvent("app_opened", { platform: Platform.OS });
+  }, []);
+
+  React.useEffect(() => {
+    let mounted = true;
+
+    const checkBackend = async () => {
+      try {
+        const response = await fetch(buildApiUrl("/health"));
+        if (!mounted) return;
+        setIsBackendDisconnected(!response.ok);
+      } catch {
+        if (!mounted) return;
+        setIsBackendDisconnected(true);
+      }
+    };
+
+    void checkBackend();
+    const interval = setInterval(() => {
+      void checkBackend();
+    }, 15000);
+
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
   }, []);
 
   if (isLoading) {
@@ -103,7 +130,7 @@ function AppContent() {
       <NavigationContainer>
         <RootStackNavigator />
       </NavigationContainer>
-      <NetworkStatusBanner isOffline={isOffline} />
+      <NetworkStatusBanner isOffline={isOffline} isBackendDisconnected={isBackendDisconnected} />
     </View>
   );
 }

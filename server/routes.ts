@@ -18,10 +18,26 @@ import roomChangeRequestRoutes from "./routes/roomChangeRequests";
 import hostelSettingsRoutes from "./routes/hostelSettings";
 import mealRatingRoutes from "./routes/mealRatings";
 import foodPollRoutes from "./routes/foodPoll";
+import gateRoutes from "./routes/gate";
+import mealCountRoutes from "./routes/mealCount";
+import { startCurfewMonitor } from "./services/gateCurfewMonitor";
+import GateConfig from "./models/GateConfig";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Connect to MongoDB
   await connectToDatabase();
+
+  for (let gateNumber = 1; gateNumber <= 11; gateNumber++) {
+    const envCode = process.env[`GATE_${gateNumber}_CODE`];
+    const fallbackCode = `gate-${gateNumber}-code`;
+    const gateCode = (envCode && envCode.trim()) ? envCode.trim() : fallbackCode;
+
+    await GateConfig.updateOne(
+      { gateNumber },
+      { $setOnInsert: { gateNumber, gateCode, assigned: false } },
+      { upsert: true }
+    );
+  }
 
   // Load face recognition models (required for attendance face verification)
   try {
@@ -49,6 +65,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/meal-ratings", mealRatingRoutes);
   app.use("/api/food-polls", foodPollRoutes);
   app.use("/api/stats", statsRoutes);
+  app.use('/api/gate', gateRoutes);
+  app.use('/api/meal-count', mealCountRoutes);
+
+  startCurfewMonitor();
 
   app.get("/api/health", (_req, res) => {
   res.json({

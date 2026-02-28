@@ -24,6 +24,7 @@ import ManageSuggestionsScreen from "@/screens/admin/ManageSuggestionsScreen";
 import MealAnalyticsScreen from "@/screens/admin/MealAnalyticsScreen";
 import StudentManagementScreen from "@/screens/admin/StudentManagementScreen";
 import FoodPollScreen from "@/screens/admin/FoodPollScreen";
+import AdminGateDashboardScreen from "@/screens/admin/AdminGateDashboardScreen";
 
 export type AdminTabParamList = {
   HomeTab: undefined;
@@ -45,6 +46,7 @@ export type AdminStackParamList = {
   FoodPoll: undefined;
   LeaveApprovals: undefined;
   RoomChangeApprovals: undefined;
+  GateDashboard: undefined;
   ComplaintManagement: undefined;
   StudentManagement: undefined;
   Profile: undefined;
@@ -186,6 +188,14 @@ function ApprovalsStack() {
   const screenOptions = useScreenOptions();
   return (
     <Stack.Navigator screenOptions={screenOptions}>
+      <Stack.Screen
+        name="GateDashboard"
+        component={AdminGateDashboardScreen}
+        options={{
+          headerTitle: "Gate Dashboard",
+          headerLeft: (props) => <BackToHomeButton {...props} />
+        }}
+      />
       <Stack.Screen
         name="LeaveApprovals"
         component={LeaveApprovalsScreen}

@@ -18,6 +18,10 @@ async function migrate() {
     const destConn = await mongoose.createConnection(NEW_URI).asPromise();
     console.log('Connected to destination (hostelease)');
 
+    if (!sourceConn.db || !destConn.db) {
+        throw new Error('Failed to initialize source/destination database handles');
+    }
+
     const collections = ['users', 'attendances', 'leaverequests', 'complaints', 'messmenus', 'announcements', 'rooms'];
 
     for (const colName of collections) {

@@ -3,6 +3,7 @@ import Attendance from '../models/Attendance';
 import User from '../models/User';
 import HostelSettings from '../models/HostelSettings';
 import LeaveRequest from '../models/LeaveRequest';
+import StudentGateState from '../models/StudentGateState';
 import { authMiddleware } from '../middleware/auth';
 import ExcelJS from 'exceljs';
 import { validateAttendanceTimeWindow, getFormattedISTTime } from '../utils/timezone';
@@ -340,6 +341,14 @@ router.post('/', authMiddleware, async (req, res) => {
     if (!user) {
       console.log(`❌ User not found for ID: ${userId}`);
       return res.status(404).json({ error: 'User not found' });
+    }
+
+    const gateState = await StudentGateState.findOne({ userId });
+    if (gateState?.attendanceLocked) {
+      return res.status(423).json({
+        error: 'Attendance is locked for this student due to gate return policy violation.',
+        code: 'ATTENDANCE_LOCKED_BY_GATE_POLICY'
+      });
     }
 
     console.log(`👤 User fetched: ${user.name} (${user._id})`);

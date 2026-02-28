@@ -9,7 +9,11 @@ const MONGODB_URI = "mongodb+srv://myhostel:23-Sep-06@notes.egwneyv.mongodb.net/
 
 async function checkOldDb() {
     await mongoose.connect(MONGODB_URI);
-    const users = await mongoose.connection.db.collection('users').find().toArray();
+    const db = mongoose.connection.db;
+    if (!db) {
+        throw new Error('Database connection is not available');
+    }
+    const users = await db.collection('users').find().toArray();
     console.log('--- USERS IN TEST DATABASE ---');
     users.forEach(u => console.log(` - ID: ${u.registerId}, Name: ${u.name}`));
     await mongoose.disconnect();

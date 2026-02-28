@@ -6,7 +6,7 @@ import { JWT_SECRET } from "../config/env";
 export interface AuthRequest extends Request {
   user?: {
     id: string;
-    role: "student" | "admin";
+    role: "student" | "admin" | "gatekeeper";
     hostelBlock: string;
   };
 }

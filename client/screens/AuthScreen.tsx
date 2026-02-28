@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { StyleSheet, View, TextInput, Pressable, Alert, Modal, FlatList, Dimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -24,6 +24,7 @@ import { Colors, Spacing, BorderRadius, Typography, Shadows } from "@/constants/
 import { HOSTEL_BLOCKS, HOSTEL_CODES } from "@/constants/hostels";
 import { FloatingBackground } from "@/components/FloatingBackground";
 import { LoadingOverlay } from "@/components/LoadingOverlay";
+import { useModalFocus } from "@/hooks/useModalFocus";
 import { apiRequest } from "@/lib/query-client";
 
 const { width } = Dimensions.get('window');
@@ -37,7 +38,7 @@ const FEATURES = [
 ];
 
 type AuthMode = "login" | "register";
-type UserRole = "student" | "admin";
+type UserRole = "student" | "admin" | "gatekeeper";
 
 export default function AuthScreen() {
   const insets = useSafeAreaInsets();
@@ -52,6 +53,8 @@ export default function AuthScreen() {
   const [phone, setPhone] = useState("");
   const [roomNumber, setRoomNumber] = useState("");
   const [hostelBlock, setHostelBlock] = useState("");
+  const [gateNumber, setGateNumber] = useState("");
+  const [gateCode, setGateCode] = useState("");
   const [showHostelModal, setShowHostelModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -72,6 +75,14 @@ export default function AuthScreen() {
   const [forgotErrors, setForgotErrors] = useState<Record<string, string>>({});
   const [forgotLoading, setForgotLoading] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
+
+  const hostelModalRef = useRef<View>(null);
+  const forgotModalRef = useRef<View>(null);
+  const registerSwitcherRef = useRef<View>(null);
+
+  useModalFocus(hostelModalRef, showHostelModal);
+  useModalFocus(forgotModalRef, showForgotModal);
+  useModalFocus(registerSwitcherRef, mode === "register");
 
   const logoScale = useSharedValue(1);
 
@@ -98,7 +109,20 @@ export default function AuthScreen() {
       if (!name) newErrors.name = "Name is required";
       // Phone is optional
       if (role === "student" && !roomNumber) newErrors.roomNumber = "Room Number is required";
-      if (!hostelBlock) newErrors.hostelBlock = "Hostel Block is required";
+      if ((role === "student" || role === "admin") && !hostelBlock) {
+        newErrors.hostelBlock = "Hostel Block is required";
+      }
+      if (role === "gatekeeper" && !gateNumber.trim()) {
+        newErrors.gateNumber = "Gate Number is required";
+      } else if (role === "gatekeeper") {
+        const parsedGateNumber = Number(gateNumber.trim());
+        if (!Number.isInteger(parsedGateNumber) || parsedGateNumber < 1 || parsedGateNumber > 11) {
+          newErrors.gateNumber = "Gate Number must be between 1 and 11";
+        }
+      }
+      if (role === "gatekeeper" && !gateCode.trim()) {
+        newErrors.gateCode = "Gate Code is required";
+      }
 
       if (password && confirmPassword && password !== confirmPassword) {
         newErrors.password = "Passwords do not match";
@@ -109,7 +133,7 @@ export default function AuthScreen() {
     }
 
     // Hostel Block Validation (Only for registration)
-    if (mode === "register" && !hostelBlock) {
+    if (mode === "register" && (role === "student" || role === "admin") && !hostelBlock) {
       newErrors.hostelBlock = "Hostel Block is required";
     }
 
@@ -158,8 +182,10 @@ export default function AuthScreen() {
           name,
           phone: phone || undefined,
           role,
+            gateNumber: role === "gatekeeper" ? Number(gateNumber.trim()) : undefined,
+            gateCode: role === "gatekeeper" ? gateCode.trim() : undefined,
           roomNumber: role === "student" ? roomNumber : undefined,
-          hostelBlock: hostelBlock, // Send for both roles
+            hostelBlock: role === "student" || role === "admin" ? hostelBlock : undefined,
         });
         if (!result.success) {
           const errMsg = result.error || "Could not create account";
@@ -186,6 +212,8 @@ export default function AuthScreen() {
     setPhone("");
     setRoomNumber("");
     setHostelBlock("");
+    setGateNumber("");
+    setGateCode("");
     setAdminCode("");
     setStudentHostelCode("");
     setErrors({});
@@ -313,6 +341,8 @@ export default function AuthScreen() {
     setForgotErrors({});
   };
 
+  const hasActiveModal = showHostelModal || showForgotModal;
+
   return (
     <LinearGradient
       colors={[Colors.primary.main, Colors.primary.pressed]}
@@ -326,6 +356,8 @@ export default function AuthScreen() {
           { paddingTop: insets.top + Spacing.xxl, paddingBottom: insets.bottom + Spacing.xxl },
         ]}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        importantForAccessibility={hasActiveModal ? "no-hide-descendants" : "auto"}
       >
         <Animated.View entering={FadeInDown.delay(200).springify()} style={styles.logoContainer}>
           <Animated.View style={[styles.logoCircle, logoAnimatedStyle]}>
@@ -361,7 +393,25 @@ export default function AuthScreen() {
                 Admin
               </ThemedText>
             </Pressable>
+            <Pressable
+              style={[styles.roleButton, role === "gatekeeper" && styles.roleButtonActive]}
+              onPress={() => setRole("gatekeeper")}
+            >
+              <Feather name="lock" size={18} color={role === "gatekeeper" ? "#FFFFFF" : Colors.primary.main} />
+              <ThemedText
+                type="bodySmall"
+                style={[styles.roleText, role === "gatekeeper" && styles.roleTextActive]}
+              >
+                Gatekeeper
+              </ThemedText>
+            </Pressable>
           </View>
+
+          {errors.role ? (
+            <ThemedText type="caption" style={{ color: Colors.status.error, marginTop: 4, marginLeft: 4 }}>
+              {errors.role}
+            </ThemedText>
+          ) : null}
 
           <ThemedText type="h2" style={styles.formTitle}>
             {mode === "login" ? "Welcome Back" : "Create Account"}
@@ -396,7 +446,7 @@ export default function AuthScreen() {
               <Feather name="hash" size={20} color={errors.registerId ? Colors.status.error : "#6B7280"} style={styles.inputIcon} />
               <TextInput
                 style={[styles.input, { outlineStyle: 'none' } as any]}
-                placeholder={role === "student" ? "Register Number" : "Staff ID"}
+                placeholder={role === "student" ? "Register Number" : role === "gatekeeper" ? "Gatekeeper ID" : "Staff ID"}
                 placeholderTextColor="#9CA3AF"
                 value={registerId}
                 onChangeText={(text) => {
@@ -438,7 +488,7 @@ export default function AuthScreen() {
           )}
 
           {/* Hostel Block Selection - Visible ONLY in Register */}
-          {mode === 'register' && (
+          {mode === 'register' && role !== 'gatekeeper' && (
             <Animated.View entering={FadeInDown} style={{ marginBottom: Spacing.lg }}>
               <View style={[styles.inputContainer, { marginBottom: 0, borderColor: errors.hostelBlock ? Colors.status.error : "#E5E7EB" }]}>
                 <Feather name="map-pin" size={20} color={errors.hostelBlock ? Colors.status.error : "#6B7280"} style={styles.inputIcon} />
@@ -461,7 +511,7 @@ export default function AuthScreen() {
           )}
 
           {/* Admin Unique Code Input - Only show for Admin */}
-          {role === "admin" && (
+          {mode === "register" && role === "admin" && (
             <Animated.View entering={FadeInDown} style={{ marginBottom: Spacing.lg }}>
               <View style={[styles.inputContainer, { marginBottom: 0, borderColor: errors.adminCode ? Colors.status.error : "#E5E7EB" }]}>
                 <Feather name="shield" size={20} color={errors.adminCode ? Colors.status.error : "#6B7280"} style={styles.inputIcon} />
@@ -480,6 +530,54 @@ export default function AuthScreen() {
               {errors.adminCode && (
                 <ThemedText type="caption" style={{ color: Colors.status.error, marginTop: 4, marginLeft: 4 }}>
                   {errors.adminCode}
+                </ThemedText>
+              )}
+            </Animated.View>
+          )}
+
+          {mode === "register" && role === "gatekeeper" && (
+            <Animated.View entering={FadeInDown} style={{ marginBottom: Spacing.lg }}>
+              <View style={[styles.inputContainer, { marginBottom: 0, borderColor: errors.gateNumber ? Colors.status.error : "#E5E7EB" }]}>
+                <Feather name="grid" size={20} color={errors.gateNumber ? Colors.status.error : "#6B7280"} style={styles.inputIcon} />
+                <TextInput
+                  style={[styles.input, { outlineStyle: 'none' } as any]}
+                  placeholder="Gate Number (1-11)"
+                  placeholderTextColor="#9CA3AF"
+                  keyboardType="number-pad"
+                  value={gateNumber}
+                  onChangeText={(text) => {
+                    setGateNumber(text);
+                    clearError("gateNumber");
+                  }}
+                />
+              </View>
+              {errors.gateNumber && (
+                <ThemedText type="caption" style={{ color: Colors.status.error, marginTop: 4, marginLeft: 4 }}>
+                  {errors.gateNumber}
+                </ThemedText>
+              )}
+            </Animated.View>
+          )}
+
+          {mode === "register" && role === "gatekeeper" && (
+            <Animated.View entering={FadeInDown} style={{ marginBottom: Spacing.lg }}>
+              <View style={[styles.inputContainer, { marginBottom: 0, borderColor: errors.gateCode ? Colors.status.error : "#E5E7EB" }]}>
+                <Feather name="key" size={20} color={errors.gateCode ? Colors.status.error : "#6B7280"} style={styles.inputIcon} />
+                <TextInput
+                  style={[styles.input, { outlineStyle: 'none' } as any]}
+                  placeholder="Gate Code"
+                  placeholderTextColor="#9CA3AF"
+                  value={gateCode}
+                  onChangeText={(text) => {
+                    setGateCode(text);
+                    clearError("gateCode");
+                  }}
+                  autoCapitalize="none"
+                />
+              </View>
+              {errors.gateCode && (
+                <ThemedText type="caption" style={{ color: Colors.status.error, marginTop: 4, marginLeft: 4 }}>
+                  {errors.gateCode}
                 </ThemedText>
               )}
             </Animated.View>
@@ -571,6 +669,9 @@ export default function AuthScreen() {
                 <Pressable
                   onPress={() => setShowForgotModal(true)}
                   style={styles.forgotButton}
+                  accessibilityRole="button"
+                  accessibilityLabel="Open forgot password dialog"
+                  hitSlop={8}
                 >
                   <ThemedText type="caption" style={styles.forgotText}>
                     Forgot Password?
@@ -603,7 +704,7 @@ export default function AuthScreen() {
             {mode === "login" ? "Sign In" : "Create Account"}
           </Button>
 
-          <View style={styles.switchModeContainer}>
+          <View ref={registerSwitcherRef} style={styles.switchModeContainer}>
             <ThemedText type="bodySmall" style={styles.switchModeText}>
               {mode === "login" ? "Don't have an account?" : "Already have an account?"}
             </ThemedText>
@@ -612,6 +713,9 @@ export default function AuthScreen() {
                 setMode(mode === "login" ? "register" : "login");
                 resetForm();
               }}
+              accessibilityRole="button"
+              accessibilityLabel={mode === "login" ? "Switch to registration" : "Switch to sign in"}
+              hitSlop={8}
             >
               <ThemedText type="bodySmall" style={styles.switchModeLink}>
                 {mode === "login" ? "Register" : "Sign In"}
@@ -661,7 +765,7 @@ export default function AuthScreen() {
         accessibilityViewIsModal={true}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View ref={hostelModalRef} style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <ThemedText type="h3">Select Hostel Block</ThemedText>
               <Pressable
@@ -709,7 +813,7 @@ export default function AuthScreen() {
         accessibilityViewIsModal={true}
       >
         <View style={[styles.modalOverlay, { zIndex: 1000 }]}>
-          <View style={[styles.modalContent, { maxHeight: '85%', zIndex: 1000 }]}>
+          <View ref={forgotModalRef} style={[styles.modalContent, { maxHeight: '85%', zIndex: 1000 }]}>
             <View style={styles.modalHeader}>
               <ThemedText type="h3">Reset Password</ThemedText>
               <Pressable
@@ -936,7 +1040,12 @@ export default function AuthScreen() {
                       value={forgotPassword}
                       onChangeText={setForgotPassword}
                     />
-                    <Pressable onPress={() => setShowForgotPassword(!showForgotPassword)}>
+                    <Pressable
+                      onPress={() => setShowForgotPassword(!showForgotPassword)}
+                      accessibilityRole="button"
+                      accessibilityLabel={showForgotPassword ? "Hide new password" : "Show new password"}
+                      hitSlop={8}
+                    >
                       <Feather name={showForgotPassword ? "eye" : "eye-off"} size={20} color="#6B7280" />
                     </Pressable>
                   </View>
