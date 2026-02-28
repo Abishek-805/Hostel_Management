@@ -1,18 +1,20 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import { authMiddleware } from '../middleware/auth';
 import ExcelJS from 'exceljs';
 import Announcement from '../models/Announcement';
-import FoodPoll from '../models/FoodPoll';
+import FoodPoll, { IFoodPoll } from '../models/FoodPoll';
 
 const router = express.Router();
+type FoodOption = IFoodPoll['foods'][number];
 
-const formatPollForClient = (poll: any, userId: string) => ({
+const formatPollForClient = (poll: IFoodPoll | null | undefined, userId: string) => ({
   ...(poll || {}),
-  foods: (poll?.foods || []).map((f: any) => ({
+  foods: (poll?.foods || []).map((f) => ({
     ...f,
     voteCount: Array.isArray(f.votes) ? f.votes.length : 0,
     hasVoted: Array.isArray(f.votes)
-      ? f.votes.some((v: any) => v.toString() === userId)
+      ? f.votes.some((v) => v.toString() === userId)
       : false,
     votes: [],
   })),
@@ -28,9 +30,9 @@ router.get('/', authMiddleware, async (req: any, res) => {
 
     const blockPolls = await FoodPoll.find({ hostelBlock })
       .sort({ createdAt: -1 })
-      .lean();
+      .lean<IFoodPoll[]>();
 
-    res.json(blockPolls.map((poll: any) => formatPollForClient(poll, req.user.id)));
+    res.json(blockPolls.map((poll: IFoodPoll) => formatPollForClient(poll, req.user.id)));
   } catch (error) {
     console.error('Error fetching polls:', error);
     res.status(500).json({ error: 'Server error' });
@@ -40,7 +42,7 @@ router.get('/', authMiddleware, async (req: any, res) => {
 // GET single poll by ID
 router.get('/:pollId', authMiddleware, async (req: any, res) => {
   try {
-    const poll = await FoodPoll.findById(req.params.pollId).lean();
+    const poll = await FoodPoll.findById(req.params.pollId).lean<IFoodPoll>();
     if (!poll) {
       return res.status(404).json({ error: 'Poll not found' });
     }
@@ -110,7 +112,7 @@ router.post('/', authMiddleware, async (req: any, res) => {
       // Don't fail the poll creation if announcement fails
     }
 
-    const createdPoll = await FoodPoll.findById(newPoll._id).lean();
+    const createdPoll = await FoodPoll.findById(newPoll._id).lean<IFoodPoll>();
     res.json(formatPollForClient(createdPoll, req.user.id));
   } catch (error) {
     console.error('Error creating poll:', error);
@@ -142,20 +144,20 @@ router.post('/:pollId/vote', authMiddleware, async (req: any, res) => {
       return res.status(400).json({ error: 'Poll is closed' });
     }
 
-    const foodItem = poll.foods.find((f: any) => f._id.toString() === foodId);
+    const foodItem = poll.foods.find((f: FoodOption) => f._id.toString() === foodId);
     if (!foodItem) {
       return res.status(404).json({ error: 'Food item not found' });
     }
 
     // Check if user already voted for this food
-    const alreadyVoted = foodItem.votes.some((id: any) => id.toString() === userId);
+    const alreadyVoted = foodItem.votes.some((id: mongoose.Types.ObjectId) => id.toString() === userId);
     if (alreadyVoted) {
       // Remove vote (toggle)
-      foodItem.votes = foodItem.votes.filter((id: any) => id.toString() !== userId);
+      foodItem.votes = foodItem.votes.filter((id: mongoose.Types.ObjectId) => id.toString() !== userId);
     } else {
       // Remove user's vote from other foods (one vote per poll per user)
-      poll.foods.forEach((f: any) => {
-        f.votes = f.votes.filter((id: any) => id.toString() !== userId);
+      poll.foods.forEach((f: FoodOption) => {
+        f.votes = f.votes.filter((id: mongoose.Types.ObjectId) => id.toString() !== userId);
       });
       // Add new vote
       foodItem.votes.push(userId);
@@ -164,7 +166,7 @@ router.post('/:pollId/vote', authMiddleware, async (req: any, res) => {
     poll.markModified('foods');
     await poll.save();
 
-    const refreshedPoll = await FoodPoll.findById(pollId).lean();
+    const refreshedPoll = await FoodPoll.findById(pollId).lean<IFoodPoll>();
     res.json(formatPollForClient(refreshedPoll, userId));
 
   } catch (error) {
@@ -177,7 +179,7 @@ router.post('/:pollId/vote', authMiddleware, async (req: any, res) => {
 router.get('/:pollId/export', authMiddleware, async (req: any, res) => {
   try {
     const pollId = req.params.pollId;
-    const poll = await FoodPoll.findById(pollId).lean();
+    const poll = await FoodPoll.findById(pollId).lean<IFoodPoll>();
 
     if (!poll) {
       return res.status(404).json({ error: 'Poll not found' });
@@ -189,9 +191,9 @@ router.get('/:pollId/export', authMiddleware, async (req: any, res) => {
 
     // Sort foods by vote count (highest to lowest)
     const sortedFoods = [...poll.foods].sort(
-      (a: any, b: any) => b.votes.length - a.votes.length,
+      (a, b) => b.votes.length - a.votes.length,
     );
-    const totalVotes = sortedFoods.reduce((sum: number, f: any) => sum + f.votes.length, 0);
+    const totalVotes = sortedFoods.reduce((sum: number, f) => sum + f.votes.length, 0);
 
     // Create Excel workbook
     const workbook = new ExcelJS.Workbook();
@@ -214,7 +216,7 @@ router.get('/:pollId/export', authMiddleware, async (req: any, res) => {
     };
 
     // Add data rows
-    sortedFoods.forEach((food: any, index: number) => {
+    sortedFoods.forEach((food, index: number) => {
       const percentage = totalVotes > 0 ? ((food.votes.length / totalVotes) * 100).toFixed(2) : '0.00';
       worksheet.addRow({
         rank: index + 1,
@@ -275,7 +277,7 @@ router.delete('/:pollId', authMiddleware, async (req: any, res) => {
       // Don't fail the poll close if announcement deletion fails
     }
 
-    const closedPoll = await FoodPoll.findById(pollId).lean();
+    const closedPoll = await FoodPoll.findById(pollId).lean<IFoodPoll>();
     res.json(formatPollForClient(closedPoll, req.user.id));
   } catch (error) {
     console.error('Error closing poll:', error);

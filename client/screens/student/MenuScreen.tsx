@@ -19,6 +19,17 @@ import { LoadingOverlay } from "@/components/LoadingOverlay";
 
 type MealType = "breakfast" | "lunch" | "dinner";
 
+type SuggestionPayload = {
+  userId: string;
+  dishName: string;
+  description?: string;
+  hostelBlock: string;
+  dayOfWeek: (typeof DAYS_SHORT)[number];
+  category: MealType;
+  type: "veg";
+  frequency: "trial";
+};
+
 const MEAL_ICONS: Record<MealType, keyof typeof Feather.glyphMap> = {
   breakfast: "sunrise",
   lunch: "sun",
@@ -103,6 +114,8 @@ export default function MenuScreen() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedMeal, setSelectedMeal] = useState<MealType>("breakfast");
   const [selectedDay, setSelectedDay] = useState<typeof DAYS_SHORT[number]>(DAYS_SHORT[new Date().getDay()]);
+  const [dishName, setDishName] = useState("");
+  const [dishDescription, setDishDescription] = useState("");
 
   // LIVE CLOCK State
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -177,6 +190,26 @@ export default function MenuScreen() {
 
   const isLoading = !menuData;
 
+  const createSuggestionMutation = useMutation({
+    mutationFn: async (suggestionData: SuggestionPayload) => {
+      const res = await apiRequest("POST", "/menu-suggestions", suggestionData);
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || "Failed to submit suggestion");
+      }
+      return res.json();
+    },
+    onSuccess: async () => {
+      Alert.alert("Success", "Suggestion submitted successfully");
+      setDishName("");
+      setDishDescription("");
+      await queryClient.invalidateQueries({ queryKey: ["menu-suggestions"] });
+    },
+    onError: (error: unknown) => {
+      Alert.alert("Error", error instanceof Error ? error.message : "Failed to submit suggestion");
+    },
+  });
+
   const getDates = () => {
     const dates = [];
     for (let i = -1; i <= 12; i++) {
@@ -218,7 +251,7 @@ export default function MenuScreen() {
       return;
     }
 
-    const suggestionData = {
+    const suggestionData: SuggestionPayload = {
       userId: user.id,
       dishName: dishName.trim(),
       description: dishDescription.trim() || undefined,
@@ -226,8 +259,8 @@ export default function MenuScreen() {
       dayOfWeek: selectedDay,
       category: selectedMeal,
       // Sending defaults for non-interactive fields
-      type: 'veg',
-      frequency: 'trial'
+      type: "veg",
+      frequency: "trial"
     };
 
     console.log('Submitting suggestion:', suggestionData);

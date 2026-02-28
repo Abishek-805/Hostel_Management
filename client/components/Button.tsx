@@ -1,4 +1,4 @@
-import React, { ReactNode } from "react";
+import React, { ReactNode, useRef } from "react";
 import { StyleSheet, Pressable, ViewStyle, StyleProp, ActivityIndicator, GestureResponderEvent, Insets, Platform } from "react-native";
 import Animated, {
   useAnimatedStyle,
@@ -25,6 +25,7 @@ interface ButtonProps {
   accessibilityLabel?: string;
   accessibilityRole?: "button";
   hitSlop?: Insets;
+  minPressIntervalMs?: number;
 }
 
 const springConfig: WithSpringConfig = {
@@ -49,9 +50,11 @@ export function Button({
   accessibilityLabel,
   accessibilityRole = "button",
   hitSlop,
+  minPressIntervalMs = 700,
 }: ButtonProps) {
   const { theme, isDark } = useTheme();
   const scale = useSharedValue(1);
+  const lastPressTimeRef = useRef(0);
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -113,9 +116,17 @@ export function Button({
     }
   };
 
+  const handlePress = () => {
+    if (disabled || loading || !onPress) return;
+    const now = Date.now();
+    if (now - lastPressTimeRef.current < minPressIntervalMs) return;
+    lastPressTimeRef.current = now;
+    onPress();
+  };
+
   return (
     <AnimatedPressable
-      onPress={disabled || loading ? undefined : onPress}
+      onPress={handlePress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       disabled={disabled || loading}

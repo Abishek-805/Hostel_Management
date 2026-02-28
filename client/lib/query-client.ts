@@ -1,9 +1,76 @@
-import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import React from "react";
+import { AppState } from "react-native";
+import {
+  MutationCache,
+  QueryCache,
+  QueryClient,
+  QueryFunction,
+  onlineManager,
+} from "@tanstack/react-query";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_BASE_URL, buildApiUrl } from "@/config/api";
+import { logger } from "@/lib/logger";
+import { captureException } from "@/lib/monitoring";
 
 // Callback for when token expires
 let onTokenExpired: (() => void) | null = null;
+
+if (typeof window !== "undefined") {
+  onlineManager.setEventListener((setOnline) => {
+    const onOnline = () => {
+      setOnline(true);
+    };
+    const onOffline = () => {
+      setOnline(false);
+    };
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+    return () => {
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+    };
+  });
+} else {
+  onlineManager.setEventListener((setOnline) => {
+    const subscription = AppState.addEventListener("change", (state) => {
+      setOnline(state === "active");
+    });
+    return () => subscription.remove();
+  });
+}
+
+export function useNetworkStatus() {
+  const [offline, setOffline] = React.useState(!onlineManager.isOnline());
+
+  React.useEffect(() => {
+    setOffline(!onlineManager.isOnline());
+    return onlineManager.subscribe(() => {
+      setOffline(!onlineManager.isOnline());
+    });
+  }, []);
+
+  return offline;
+}
+
+function parseHttpStatus(error: unknown): number | null {
+  if (!(error instanceof Error)) return null;
+  const match = error.message.match(/^(\d{3}):/);
+  if (!match) return null;
+  return Number.parseInt(match[1], 10);
+}
+
+function isRetriableError(error: unknown): boolean {
+  const status = parseHttpStatus(error);
+  if (status) return status >= 500 || status === 429;
+  if (!(error instanceof Error)) return false;
+  return /network|failed to fetch|timeout|request failed/i.test(error.message);
+}
+
+function retryDelay(attemptIndex: number): number {
+  const base = 1000 * 2 ** attemptIndex;
+  const jitter = Math.floor(Math.random() * 300);
+  return Math.min(base + jitter, 30000);
+}
 
 export function setTokenExpiredCallback(callback: () => void) {
   onTokenExpired = callback;
@@ -35,22 +102,28 @@ export async function apiRequest(
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  const res = await fetch(url.toString(), {
-    method,
-    headers,
-    body: (data && method !== 'GET' && method !== 'HEAD') ? JSON.stringify(data) : undefined,
-    credentials: "include", // Optional if using token, but harmless
-  });
+  let res: Response;
+  try {
+    res = await fetch(url.toString(), {
+      method,
+      headers,
+      body: (data && method !== 'GET' && method !== 'HEAD') ? JSON.stringify(data) : undefined,
+      credentials: "include", // Optional if using token, but harmless
+    });
+  } catch (error) {
+    await captureException(error, { scope: "apiRequest", method, route });
+    throw new Error("Network error: unable to reach server. Please check your connection.");
+  }
 
   // Handle 401 - token is invalid/expired
   if (res.status === 401) {
-    console.warn(`⚠️ apiRequest: Got 401 Unauthorized, clearing auth state for ${method} ${url}`);
+    logger.warn(`401 Unauthorized for ${method} ${url}`);
     // Clear stored auth data
     await AsyncStorage.removeItem("@hostelease_token");
     await AsyncStorage.removeItem("@hostelease_user");
     // Trigger callback to reset auth context
     if (onTokenExpired) {
-      console.log(`🔄 apiRequest: Triggering token expired callback`);
+      logger.info("Triggering token expired callback");
       onTokenExpired();
     }
   }
@@ -78,28 +151,28 @@ export const getQueryFn: <T>(options: {
       const headers: Record<string, string> = {};
       if (token) {
         headers["Authorization"] = `Bearer ${token}`;
-      } else {
-        console.warn(`🔴 getQueryFn: No token found for URL: ${url}`);
       }
 
-      console.log(`🟢 getQueryFn: Fetching ${url} with token: ${token ? 'YES' : 'NO'}`);
-
-      const res = await fetch(url, {
-        headers,
-        credentials: "include",
-      });
-
-      console.log(`🟡 getQueryFn: Response status for ${url}: ${res.status}`);
+      let res: Response;
+      try {
+        res = await fetch(url, {
+          headers,
+          credentials: "include",
+        });
+      } catch (error) {
+        await captureException(error, { scope: "getQueryFn", route });
+        throw new Error("Network error: unable to reach server. Please retry.");
+      }
 
       // Handle 401 - token is invalid/expired
       if (res.status === 401) {
-        console.warn(`⚠️ getQueryFn: Got 401 Unauthorized, clearing auth state`);
+        logger.warn("401 Unauthorized while querying, clearing auth state");
         // Clear stored auth data
         await AsyncStorage.removeItem("@hostelease_token");
         await AsyncStorage.removeItem("@hostelease_user");
         // Trigger callback to reset auth context
         if (onTokenExpired) {
-          console.log(`🔄 Triggering token expired callback`);
+          logger.info("Triggering token expired callback");
           onTokenExpired();
         }
         if (on401 === "returnNull") {
@@ -112,16 +185,44 @@ export const getQueryFn: <T>(options: {
     };
 
 export const queryClient = new QueryClient({
+  queryCache: new QueryCache({
+    onError: (error, query) => {
+      void captureException(error, {
+        scope: "react-query",
+        queryKey: String(query.queryKey),
+      });
+    },
+  }),
+  mutationCache: new MutationCache({
+    onError: (error, _variables, _context, mutation) => {
+      void captureException(error, {
+        scope: "react-mutation",
+        mutationKey: String(mutation.options.mutationKey),
+      });
+    },
+  }),
   defaultOptions: {
     queries: {
       queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
       refetchOnWindowFocus: false,
+      refetchOnReconnect: true,
+      networkMode: "online",
       staleTime: 1000 * 60, // 1 minute default
-      retry: false,
+      gcTime: 1000 * 60 * 5,
+      retry: (failureCount, error) => {
+        if (failureCount >= 3) return false;
+        return isRetriableError(error);
+      },
+      retryDelay,
     },
     mutations: {
-      retry: false,
+      networkMode: "online",
+      retry: (failureCount, error) => {
+        if (failureCount >= 2) return false;
+        return isRetriableError(error);
+      },
+      retryDelay,
     },
   },
 });

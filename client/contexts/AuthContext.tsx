@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { apiRequest, queryClient, setTokenExpiredCallback } from "@/lib/query-client";
+import { logger } from "@/lib/logger";
 
 type UserRole = "student" | "admin";
 
@@ -51,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loadStoredUser();
     // Set up callback for when token expires
     setTokenExpiredCallback(() => {
-      console.log("🔴 Token expired, logging out user");
+      logger.warn("Token expired, logging out user");
       handleTokenExpired();
     });
   }, []);
@@ -72,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const storedUser = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
       const storedToken = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
-      console.log(`📝 AuthContext: Loaded user: ${storedUser ? 'YES' : 'NO'}, Token: ${storedToken ? 'YES' : 'NO'}`);
+      logger.debug(`AuthContext loaded user: ${storedUser ? 'YES' : 'NO'}, token: ${storedToken ? 'YES' : 'NO'}`);
       
       // If we have both user and token, try to validate the token
       if (storedUser && storedToken) {
@@ -114,10 +115,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: false, error: data.error || "Login failed" };
       }
 
-      console.log(`✅ Login successful for ${normalizedRegisterId}, storing token and user`);
+      logger.info(`Login successful for ${normalizedRegisterId}`);
       await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(data.user));
       await AsyncStorage.setItem(AUTH_TOKEN_KEY, data.token);
-      console.log(`✅ Token stored: ${data.token.substring(0, 20)}...`);
+      logger.debug("Auth token stored");
       setUser(data.user);
       return { success: true };
     } catch (err) {

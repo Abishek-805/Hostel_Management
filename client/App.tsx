@@ -13,6 +13,10 @@ import RootStackNavigator from "@/navigation/RootStackNavigator";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { Colors } from "@/constants/theme";
+import { NetworkStatusBanner } from "@/components/NetworkStatusBanner";
+import { suppressProductionConsoleNoise } from "@/lib/logger";
+import { captureException, initMonitoring, trackEvent } from "@/lib/monitoring";
+import { useNetworkStatus } from "@/lib/query-client";
 
 // Suppress known deprecation warnings from react-native-web that are handled by React Navigation
 if (Platform.OS === 'web') {
@@ -58,8 +62,33 @@ if (Platform.OS === 'web') {
   });
 }
 
+suppressProductionConsoleNoise();
+
+void initMonitoring();
+
+if (Platform.OS === "web") {
+  window.addEventListener("unhandledrejection", (event) => {
+    void captureException(event.reason, { source: "unhandledrejection" });
+  });
+} else {
+  const globalAny = globalThis as any;
+  const originalUnhandledRejection = globalAny.onunhandledrejection;
+  globalAny.onunhandledrejection = (event: any) => {
+    const reason = event?.reason ?? event;
+    void captureException(reason, { source: "native-unhandledrejection" });
+    if (typeof originalUnhandledRejection === "function") {
+      return originalUnhandledRejection(event);
+    }
+  };
+}
+
 function AppContent() {
   const { isLoading } = useAuth();
+  const isOffline = useNetworkStatus();
+
+  React.useEffect(() => {
+    void trackEvent("app_opened", { platform: Platform.OS });
+  }, []);
 
   if (isLoading) {
     return (
@@ -70,15 +99,18 @@ function AppContent() {
   }
 
   return (
-    <NavigationContainer>
-      <RootStackNavigator />
-    </NavigationContainer>
+    <View style={styles.root}>
+      <NavigationContainer>
+        <RootStackNavigator />
+      </NavigationContainer>
+      <NetworkStatusBanner isOffline={isOffline} />
+    </View>
   );
 }
 
 export default function App() {
   return (
-    <ErrorBoundary>
+    <ErrorBoundary onError={(error, stack) => { void captureException(error, { stack, source: "ErrorBoundary" }); }}>
       <QueryClientProvider client={queryClient}>
         <SafeAreaProvider>
           <GestureHandlerRootView style={styles.root}>
