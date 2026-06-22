@@ -45,14 +45,14 @@ function setupCors(app: express.Application) {
     .map((value) => value.trim())
     .filter(Boolean);
 
-  const allowedOrigins = new Set<string>([
-    APP_ORIGIN,
-    "http://localhost:8081",
-    "http://127.0.0.1:8081",
-    "http://localhost:19006",
-    "http://127.0.0.1:19006",
-    ...configuredOrigins,
-  ]);
+  const allowedOrigins = new Set<string>([APP_ORIGIN, ...configuredOrigins]);
+
+  if (!isProduction) {
+    allowedOrigins.add("http://localhost:8081");
+    allowedOrigins.add("http://127.0.0.1:8081");
+    allowedOrigins.add("http://localhost:19006");
+    allowedOrigins.add("http://127.0.0.1:19006");
+  }
 
   const isAllowedOrigin = (origin: string) => {
     if (allowedOrigins.has(origin)) return true;
@@ -119,26 +119,19 @@ function setupBodyParsing(app: express.Application) {
    REQUEST LOGGING
 ========================= */
 function setupRequestLogging(app: express.Application) {
+  if (process.env.NODE_ENV !== "production") {
+    return;
+  }
+
   app.use((req, res, next) => {
     const start = Date.now();
     const reqPath = req.path;
-    let capturedJsonResponse: Record<string, unknown> | undefined;
-
-    const originalResJson = res.json.bind(res);
-    res.json = (body: any) => {
-      capturedJsonResponse = body;
-      return originalResJson(body);
-    };
 
     res.on("finish", () => {
       if (!reqPath.startsWith("/api")) return;
 
       const duration = Date.now() - start;
       let logLine = `${req.method} ${reqPath} ${res.statusCode} in ${duration}ms`;
-
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
 
       if (logLine.length > 100) {
         logLine = logLine.slice(0, 99) + "…";
@@ -309,6 +302,11 @@ process.on("SIGINT", () => gracefulShutdown("SIGINT"));
    BOOTSTRAP
 ========================= */
 (async () => {
+  if (isProduction) {
+    app.set("env", "production");
+    process.env.JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "1d";
+  }
+
   // CORS must be applied first so preflight always gets headers
   setupCors(app);
   setupAllSecurityMiddleware(app);

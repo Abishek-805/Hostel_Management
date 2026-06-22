@@ -15,9 +15,11 @@ import MenuScreen from "@/screens/student/MenuScreen";
 import AttendanceScreen from "@/screens/student/AttendanceScreen";
 import StudentGateScreen from "@/screens/student/StudentGateScreen";
 import StudentProfileScreen from "@/screens/student/StudentProfileScreen";
+import StudentNotificationsScreen from "@/screens/student/StudentNotificationsScreen";
 import AnnouncementsScreen from "@/screens/student/AnnouncementsScreen";
 import ComplaintsScreen from "@/screens/student/ComplaintsScreen";
 import RoomDetailsScreen from "@/screens/student/RoomDetailsScreen";
+import RequestsScreen from "@/screens/student/RequestsScreen";
 import FoodPollScreen from "@/screens/admin/FoodPollScreen";
 
 export type StudentTabParamList = {
@@ -30,10 +32,12 @@ export type StudentTabParamList = {
 
 export type StudentStackParamList = {
   Dashboard: undefined;
+  Notifications: undefined;
   Announcements: undefined;
   Complaints: undefined;
   Menu: undefined;
   Attendance: undefined;
+  Requests: undefined;
   Gate: undefined;
   Profile: undefined;
   RoomDetails: undefined;
@@ -71,6 +75,14 @@ function HomeStack() {
         name="Dashboard"
         component={StudentDashboardScreen}
         options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="Notifications"
+        component={StudentNotificationsScreen}
+        options={{
+          headerTitle: "Gate Notifications",
+          headerLeft: (props) => <BackToHomeButton {...props} />
+        }}
       />
       <Stack.Screen
         name="Announcements"
@@ -138,6 +150,14 @@ function RequestsStack() {
   const screenOptions = useScreenOptions();
   return (
     <Stack.Navigator screenOptions={screenOptions}>
+      <Stack.Screen
+        name="Requests"
+        component={RequestsScreen}
+        options={{
+          headerTitle: "Requests",
+          headerLeft: (props) => <BackToHomeButton {...props} />
+        }}
+      />
       <Stack.Screen
         name="Gate"
         component={StudentGateScreen}

@@ -7,6 +7,7 @@ export interface IUser extends Document {
   role: "student" | "admin" | "gatekeeper";
   hostelBlock: string;
   gateNumber?: number;
+  gateCode?: string;
   roomNumber?: string;
   phone?: string;
   profileImage?: string;
@@ -30,6 +31,10 @@ const UserSchema = new Schema({
     type: Number,
     min: 1,
     max: 11,
+  },
+  gateCode: {
+    type: String,
+    trim: true,
   },
   roomNumber: { type: String },
   phone: { type: String },

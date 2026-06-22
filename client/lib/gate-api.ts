@@ -107,3 +107,59 @@ export async function gateApiRequest(method: HttpMethod, path: string, body?: un
 
   throw new Error(GATE_GENERIC_REQUEST_ERROR);
 }
+
+export async function createGatePass(payload: {
+  category?: "HOME" | "PERSONAL" | "MEDICAL" | "ACADEMIC" | "OTHER";
+  reason: string;
+  destination: string;
+  emergencyContact?: string;
+  requestedExitTime?: string;
+  expectedReturnTime: string;
+}) {
+  const response = await gateApiRequest("POST", "/gate/passes", payload);
+  return response.json();
+}
+
+export async function getMyPasses() {
+  const response = await gateApiRequest("GET", "/gate/passes/my");
+  return response.json();
+}
+
+export async function getQrToken(gatePassId: string, stage: "EXIT" | "CAMPUS_ENTRY" | "HOSTEL_ENTRY" = "EXIT") {
+  const response = await gateApiRequest("GET", `/gate/passes/${gatePassId}/qr-token?stage=${encodeURIComponent(stage)}`);
+  return response.json();
+}
+
+export async function downloadGatePassPdf(gatePassId: string, stage: "EXIT" | "CAMPUS_ENTRY" | "HOSTEL_ENTRY" = "EXIT") {
+  return gateApiRequest("GET", `/gate/passes/${gatePassId}/pdf?stage=${encodeURIComponent(stage)}`);
+}
+
+export async function approvePass(gatePassId: string, approvedReturnTime?: string) {
+  const response = await gateApiRequest("POST", `/gate/passes/${gatePassId}/approve`,
+    approvedReturnTime ? { approvedReturnTime } : {}
+  );
+  return response.json();
+}
+
+export async function markExit(gatePassId: string) {
+  const response = await gateApiRequest("POST", `/gate/passes/${gatePassId}/mark-exit`, {});
+  return response.json();
+}
+
+export async function scanCampusEntry(payload: {
+  token: string;
+  latitude?: number;
+  longitude?: number;
+}) {
+  const response = await gateApiRequest("POST", "/gate/scan/campus-entry", payload);
+  return response.json();
+}
+
+export async function scanHostelEntry(payload: {
+  token: string;
+  latitude?: number;
+  longitude?: number;
+}) {
+  const response = await gateApiRequest("POST", "/gate/scan/hostel-entry", payload);
+  return response.json();
+}

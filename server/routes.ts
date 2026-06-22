@@ -19,8 +19,14 @@ import hostelSettingsRoutes from "./routes/hostelSettings";
 import mealRatingRoutes from "./routes/mealRatings";
 import foodPollRoutes from "./routes/foodPoll";
 import gateRoutes from "./routes/gate";
+import gateScanRecordRouter from "./routes/gateScanRecords";
 import mealCountRoutes from "./routes/mealCount";
+import systemMetricsRoutes from "./routes/systemMetrics";
+import attendanceLocationLogsRoutes from "./routes/attendanceLocationLogs";
+import userFeedbackRoutes from "./routes/userFeedback";
+import notificationRoutes from "./routes/notifications";
 import { startCurfewMonitor } from "./services/gateCurfewMonitor";
+import { startLateCheckMonitor } from "./services/lateCheckService";
 import GateConfig from "./models/GateConfig";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -66,9 +72,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/food-polls", foodPollRoutes);
   app.use("/api/stats", statsRoutes);
   app.use('/api/gate', gateRoutes);
+  app.use('/api/gate-scan-records', gateScanRecordRouter);
   app.use('/api/meal-count', mealCountRoutes);
+  app.use('/api/system', systemMetricsRoutes);
+  app.use('/api/attendance-location-logs', attendanceLocationLogsRoutes);
+  app.use('/api/user-feedback', userFeedbackRoutes);
+  app.use('/api/notifications', notificationRoutes);
 
   startCurfewMonitor();
+  startLateCheckMonitor();
 
   app.get("/api/health", (_req, res) => {
   res.json({

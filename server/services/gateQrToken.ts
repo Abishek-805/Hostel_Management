@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import QRTokenLog from '../models/QRTokenLog';
 import { GATE_QR_HMAC_SECRET, GATE_QR_TOKEN_TTL_SECONDS } from '../config/gate';
 
-export type GateStage = 'CAMPUS_ENTRY' | 'HOSTEL_ENTRY';
+export type GateStage = 'EXIT' | 'CAMPUS_ENTRY' | 'HOSTEL_ENTRY';
 
 export interface GateQrPayload {
   userId: string;

@@ -345,10 +345,7 @@ router.post('/', authMiddleware, async (req, res) => {
 
     const gateState = await StudentGateState.findOne({ userId });
     if (gateState?.attendanceLocked) {
-      return res.status(423).json({
-        error: 'Attendance is locked for this student due to gate return policy violation.',
-        code: 'ATTENDANCE_LOCKED_BY_GATE_POLICY'
-      });
+      return res.status(403).json({ message: 'Attendance locked due to late return.' });
     }
 
     console.log(`👤 User fetched: ${user.name} (${user._id})`);

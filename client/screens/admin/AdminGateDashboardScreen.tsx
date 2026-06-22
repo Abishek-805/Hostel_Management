@@ -230,21 +230,27 @@ export default function AdminGateDashboardScreen() {
             onChangeText={(text) => setReasons((prev) => ({ ...prev, [item.gatePassId]: text }))}
           />
 
-          <Button
-            onPress={() => askConfirm("Approve Gate Pass", "Approve this gate pass request?", () => void approve(item.gatePassId))}
-            fullWidth
-          >
-            Approve
-          </Button>
-          <Button
-            onPress={() => askConfirm("Reject Gate Pass", "Reject this gate pass request?", () => void reject(item.gatePassId))}
-            variant="outline"
-            textStyle={{ color: Colors.status.error }}
-            style={{ borderColor: Colors.status.error }}
-            fullWidth
-          >
-            Reject
-          </Button>
+          <View style={styles.actionRow}>
+            <View style={styles.actionButtonCell}>
+              <Button
+                onPress={() => askConfirm("Approve Gate Pass", "Approve this gate pass request?", () => void approve(item.gatePassId))}
+                fullWidth
+              >
+                Approve
+              </Button>
+            </View>
+            <View style={styles.actionButtonCell}>
+              <Button
+                onPress={() => askConfirm("Reject Gate Pass", "Reject this gate pass request?", () => void reject(item.gatePassId))}
+                variant="outline"
+                textStyle={{ color: Colors.status.error }}
+                style={{ borderColor: Colors.status.error }}
+                fullWidth
+              >
+                Reject
+              </Button>
+            </View>
+          </View>
         </View>
       );
     },
@@ -320,22 +326,32 @@ export default function AdminGateDashboardScreen() {
       <ThemedText type="h2" style={styles.screenTitle}>Gate Dashboard</ThemedText>
 
       <View style={styles.summaryRow}>
-        <View style={[styles.summaryCard, { backgroundColor: Colors.light.backgroundSecondary }]}> 
+        <View style={[styles.summaryCard, styles.summaryCardPending]}> 
           <Feather name="clock" size={18} color={Colors.status.warning} />
           <ThemedText type="h3">{pendingPasses.length}</ThemedText>
-          <ThemedText type="caption">Pending</ThemedText>
+          <ThemedText type="caption" style={styles.summaryLabel}>Pending Approvals</ThemedText>
         </View>
-        <View style={[styles.summaryCard, { backgroundColor: Colors.light.backgroundSecondary }]}> 
+        <View style={[styles.summaryCard, styles.summaryCardOutside]}> 
           <Feather name="log-out" size={18} color={Colors.status.info} />
           <ThemedText type="h3">{outsideCount}</ThemedText>
-          <ThemedText type="caption">Outside</ThemedText>
+          <ThemedText type="caption" style={styles.summaryLabel}>Outside Campus</ThemedText>
         </View>
-        <View style={[styles.summaryCard, { backgroundColor: Colors.light.backgroundSecondary }]}> 
+        <View style={[styles.summaryCard, styles.summaryCardLate]}> 
           <Feather name="alert-circle" size={18} color={Colors.status.error} />
           <ThemedText type="h3">{latePasses.length}</ThemedText>
-          <ThemedText type="caption">Late</ThemedText>
+          <ThemedText type="caption" style={styles.summaryLabel}>Late Students</ThemedText>
         </View>
       </View>
+
+      {latePasses.length > 0 ? (
+        <View style={styles.alertBanner}>
+          <Feather name="alert-triangle" size={18} color={Colors.status.error} />
+          <View style={styles.alertTextWrap}>
+            <ThemedText type="bodySmall" style={styles.alertTitle}>Immediate Attention Required</ThemedText>
+            <ThemedText type="caption">{latePasses.length} student(s) are currently flagged late.</ThemedText>
+          </View>
+        </View>
+      ) : null}
 
       <View style={styles.segmentContainer}>
         {SEGMENTS.map((segment) => (
@@ -485,9 +501,45 @@ const styles = StyleSheet.create({
   summaryCard: {
     flex: 1,
     borderRadius: BorderRadius.sm,
-    padding: Spacing.md,
+    padding: Spacing.lg,
     gap: Spacing.xs,
     ...Shadows.sm,
+  },
+  summaryCardPending: {
+    backgroundColor: Colors.light.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: Colors.status.warning,
+  },
+  summaryCardOutside: {
+    backgroundColor: Colors.light.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: Colors.status.info,
+  },
+  summaryCardLate: {
+    backgroundColor: Colors.light.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: Colors.status.error,
+  },
+  summaryLabel: {
+    fontWeight: "700",
+  },
+  alertBanner: {
+    borderWidth: 1,
+    borderColor: Colors.status.error,
+    borderRadius: BorderRadius.sm,
+    backgroundColor: Colors.light.backgroundSecondary,
+    padding: Spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  alertTextWrap: {
+    flex: 1,
+    gap: 2,
+  },
+  alertTitle: {
+    color: Colors.status.error,
+    fontWeight: "700",
   },
   segmentContainer: {
     flexDirection: "row",
@@ -589,5 +641,12 @@ const styles = StyleSheet.create({
   },
   modalActions: {
     gap: Spacing.sm,
+  },
+  actionRow: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  actionButtonCell: {
+    flex: 1,
   },
 });

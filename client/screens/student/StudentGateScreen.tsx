@@ -68,6 +68,19 @@ function getTimelineCompletion(pass: GatePass) {
   };
 }
 
+function getReturnCountdown(pass: GatePass) {
+  const remainingMs = new Date(pass.expectedReturnTime).getTime() - Date.now();
+  const absMinutes = Math.floor(Math.abs(remainingMs) / (60 * 1000));
+  if (remainingMs < 0) {
+    return { label: `Overdue by ${absMinutes} min`, isLateRisk: true };
+  }
+
+  const hours = Math.floor(absMinutes / 60);
+  const minutes = absMinutes % 60;
+  const label = hours > 0 ? `${hours}h ${minutes}m remaining` : `${minutes}m remaining`;
+  return { label, isLateRisk: absMinutes <= 30 };
+}
+
 export default function StudentGateScreen() {
   const { theme } = useTheme();
 
@@ -408,18 +421,32 @@ export default function StudentGateScreen() {
                 <View style={styles.cardHeader}>
                   <ThemedText type="body" style={styles.cardTitle}>{item.destination}</ThemedText>
                   <View
-                    style={[styles.statusChip, { backgroundColor: getStatusTone(item.status).bg }]}
+                    style={[styles.statusChipLarge, { backgroundColor: getStatusTone(item.status).bg }]}
                     accessible
                     accessibilityLabel={`Pass status ${getStatusTone(item.status).label}`}
                   >
-                    <ThemedText type="caption" style={[styles.statusChipLabel, { color: getStatusTone(item.status).fg }]}>
+                    <ThemedText type="caption" style={[styles.statusChipLabelLarge, { color: getStatusTone(item.status).fg }]}>
                       {getStatusTone(item.status).label}
                     </ThemedText>
                   </View>
                 </View>
                 <ThemedText type="caption">↩ {new Date(item.expectedReturnTime).toLocaleString()}</ThemedText>
+                {(item.status === "APPROVED" || item.status === "LATE") ? (
+                  <View style={[styles.countdownBadge, getReturnCountdown(item).isLateRisk ? styles.lateRiskBadge : undefined]}>
+                    <ThemedText type="caption" style={styles.countdownTextStrong}>
+                      Countdown: {getReturnCountdown(item).label}
+                    </ThemedText>
+                  </View>
+                ) : null}
+                {(item.status === "APPROVED" || item.status === "LATE") && getReturnCountdown(item).isLateRisk ? (
+                  <View style={styles.lateRiskPanel}>
+                    <ThemedText type="caption" style={styles.lateRiskTitle}>Late Risk Alert</ThemedText>
+                    <ThemedText type="caption">Return window is tight. Reach campus/hostel checkpoints early.</ThemedText>
+                  </View>
+                ) : null}
                 {(item.status === "APPROVED" || item.status === "LATE" || item.status === "COMPLETED") ? (
                   <View style={styles.timelineWrap}>
+                    <ThemedText type="caption" style={styles.timelineHeader}>Gate Timeline</ThemedText>
                     {[
                       { key: "applied", label: "Applied" },
                       { key: "approved", label: "Approved" },
@@ -545,12 +572,14 @@ export default function StudentGateScreen() {
                 Expires in {remainingSeconds}s{remainingSeconds < 10 ? " • Refresh now" : ""}
               </ThemedText>
 
-              <Animated.View style={[styles.qrBorder, { borderColor: qrBorderColor }]}> 
-                <Image
-                  source={{ uri: `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(token)}` }}
-                  style={styles.qrImage}
-                />
-              </Animated.View>
+              <View style={styles.qrPanel}>
+                <Animated.View style={[styles.qrBorder, { borderColor: qrBorderColor }]}> 
+                  <Image
+                    source={{ uri: `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(token)}` }}
+                    style={styles.qrImage}
+                  />
+                </Animated.View>
+              </View>
 
               <ThemedText type="caption" style={styles.qrSafetyText}>
                 Do not share this QR. It expires automatically.
@@ -721,50 +750,79 @@ const styles = StyleSheet.create({
   cardTitle: {
     flex: 1,
   },
-  statusChip: {
+  statusChipLarge: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.xs,
     borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    minHeight: 34,
+  },
+  statusChipLabelLarge: {
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.6,
+  },
+  countdownBadge: {
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: Colors.primary.light,
+    backgroundColor: Colors.light.backgroundSecondary,
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
-    minHeight: 24,
   },
-  statusChipLabel: {
-    fontSize: 11,
-    fontWeight: "600",
-    letterSpacing: 0.4,
+  countdownTextStrong: {
+    fontWeight: "700",
+  },
+  lateRiskBadge: {
+    borderColor: Colors.status.error,
+    backgroundColor: Colors.light.backgroundSecondary,
+  },
+  lateRiskPanel: {
+    borderRadius: BorderRadius.sm,
+    borderWidth: 1,
+    borderColor: Colors.status.error,
+    backgroundColor: Colors.light.backgroundSecondary,
+    padding: Spacing.sm,
+    gap: Spacing.xs,
+  },
+  lateRiskTitle: {
+    color: Colors.status.error,
+    fontWeight: "700",
   },
   timelineWrap: {
-    flexDirection: "row",
+    flexDirection: "column",
     alignItems: "flex-start",
     marginTop: Spacing.xs,
     borderTopWidth: 1,
     borderTopColor: Colors.light.border,
     paddingTop: Spacing.sm,
   },
+  timelineHeader: {
+    fontWeight: "700",
+    marginBottom: Spacing.xs,
+  },
   timelineStep: {
-    flex: 1,
+    width: "100%",
+    flexDirection: "row",
     alignItems: "center",
-    minHeight: 48,
+    minHeight: 34,
     position: "relative",
   },
   timelineDot: {
-    width: 12,
-    height: 12,
+    width: 14,
+    height: 14,
     borderRadius: BorderRadius.full,
     borderWidth: 2,
   },
   timelineLine: {
-    position: "absolute",
-    top: 5,
-    right: -18,
-    width: 36,
+    width: 16,
     height: 2,
+    marginHorizontal: Spacing.xs,
   },
   timelineLabel: {
-    marginTop: Spacing.xs,
-    fontSize: 10,
+    fontSize: 11,
   },
   focusCard: {
     borderWidth: 0,
@@ -801,6 +859,14 @@ const styles = StyleSheet.create({
     borderTopColor: Colors.light.border,
     marginTop: Spacing.sm,
     paddingTop: Spacing.md,
+  },
+  qrPanel: {
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    backgroundColor: Colors.light.backgroundSecondary,
+    ...Shadows.sm,
   },
   countdownText: {
     fontWeight: "600",

@@ -9,6 +9,8 @@ import { JWT_SECRET } from "../config/env";
 
 const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const buildRegisterIdRegex = (value: string) => new RegExp(`^\\s*${escapeRegex(value)}\\s*$`, "i");
+const getJwtExpiry = (): jwt.SignOptions["expiresIn"] =>
+  (process.env.JWT_EXPIRES_IN || "7d") as jwt.SignOptions["expiresIn"];
 
 // Helper to sign token
 const signToken = (user: any) => {
@@ -19,7 +21,7 @@ const signToken = (user: any) => {
       hostelBlock: user.hostelBlock,
     },
     JWT_SECRET,
-    { expiresIn: "7d" }
+    { expiresIn: getJwtExpiry() }
   );
 };
 
@@ -115,6 +117,7 @@ router.post("/register", async (req, res) => {
       phone,
       role,
       gateNumber: role === 'gatekeeper' ? normalizedGateNumber : undefined,
+      gateCode: role === 'gatekeeper' ? gateCode?.trim() : undefined,
       roomNumber: role === 'student' ? roomNumber : undefined,
       hostelBlock: role === 'gatekeeper' ? `Gate ${normalizedGateNumber}` : hostelBlock,
     });
@@ -207,7 +210,7 @@ router.post("/login", async (req, res) => {
         hostelBlock: user.hostelBlock, // ✅ IMPORTANT
       },
       JWT_SECRET,
-      { expiresIn: "7d" }
+      { expiresIn: getJwtExpiry() }
     );
 
     console.log(`✅ Login successful for ${normalizedRegisterId}, token: ${token.substring(0, 30)}...`);

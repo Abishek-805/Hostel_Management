@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Alert, LayoutAnimation, ScrollView, StyleSheet, TextInput, UIManager, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { ThemedView } from "@/components/ThemedView";
@@ -37,6 +37,19 @@ export default function GatekeeperScanScreen() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [scanResult, setScanResult] = useState<ScanResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [highContrast, setHighContrast] = useState(false);
+
+  useEffect(() => {
+    if (lastScanState === "IDLE") return;
+    const timer = setTimeout(() => {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      setLastScanState("IDLE");
+      setErrorMessage(null);
+      setScanResult(null);
+    }, 1800);
+
+    return () => clearTimeout(timer);
+  }, [lastScanState]);
 
   const runScan = useCallback(async (mode: "campus" | "hostel") => {
     if (!token.trim()) {
@@ -76,22 +89,30 @@ export default function GatekeeperScanScreen() {
   }, [runScan, scanMode]);
 
   return (
-    <ThemedView style={styles.container}>
+    <ThemedView style={[styles.container, highContrast ? styles.containerHighContrast : undefined]}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <ThemedText type="h2" style={styles.screenTitle}>Gate Verification Console</ThemedText>
 
-        <View style={styles.toggleWrap}>
+        <Button
+          onPress={() => setHighContrast((prev) => !prev)}
+          variant={highContrast ? "primary" : "outline"}
+          fullWidth
+        >
+          {highContrast ? "High-Contrast: ON" : "High-Contrast: OFF"}
+        </Button>
+
+        <View style={[styles.toggleWrap, highContrast ? styles.toggleWrapHighContrast : undefined]}>
           <PressableMode mode="campus" activeMode={scanMode} onPress={() => setScanMode("campus")} />
           <PressableMode mode="hostel" activeMode={scanMode} onPress={() => setScanMode("hostel")} />
         </View>
 
-        <View style={styles.tokenArea}>
+        <View style={[styles.tokenArea, highContrast ? styles.tokenAreaHighContrast : undefined]}>
           <ThemedText type="body" style={styles.label}>Paste Signed QR Token</ThemedText>
           <ThemedText type="caption" secondary>
             Paste the signed token copied from the student QR, then verify by selected mode.
           </ThemedText>
           <TextInput
-            style={styles.scanInput}
+            style={[styles.scanInput, highContrast ? styles.inputHighContrast : undefined]}
             placeholder="Signed token"
             value={token}
             onChangeText={setToken}
@@ -100,13 +121,13 @@ export default function GatekeeperScanScreen() {
         </View>
 
         <TextInput
-          style={styles.input}
+          style={[styles.input, highContrast ? styles.inputHighContrast : undefined]}
           placeholder="Latitude (required for hostel)"
           value={latitude}
           onChangeText={setLatitude}
         />
         <TextInput
-          style={styles.input}
+          style={[styles.input, highContrast ? styles.inputHighContrast : undefined]}
           placeholder="Longitude (required for hostel)"
           value={longitude}
           onChangeText={setLongitude}
@@ -119,10 +140,10 @@ export default function GatekeeperScanScreen() {
         </View>
 
         {lastScanState === "SUCCESS" ? (
-          <View style={styles.successPanel} accessible accessibilityLabel="Verification successful">
+          <View style={[styles.resultPanel, styles.successPanel, highContrast ? styles.successPanelHighContrast : undefined]} accessible accessibilityLabel="Verification successful">
             <View style={styles.panelHeader}>
-              <Feather name="check-circle" size={20} color={Colors.status.success} />
-              <ThemedText type="body" style={styles.successTitle}>✔ Verified</ThemedText>
+              <Feather name="check-circle" size={24} color={Colors.status.success} />
+              <ThemedText type="h3" style={styles.successTitle}>✔ VERIFIED</ThemedText>
             </View>
             <ThemedText type="caption">Student: Token owner verified</ThemedText>
             <ThemedText type="caption">Pass reason: {scanResult?.gatePass?.reason || "-"}</ThemedText>
@@ -133,10 +154,10 @@ export default function GatekeeperScanScreen() {
         ) : null}
 
         {lastScanState === "ERROR" ? (
-          <View style={styles.errorPanel} accessible accessibilityLabel="Verification failed">
+          <View style={[styles.resultPanel, styles.errorPanel, highContrast ? styles.errorPanelHighContrast : undefined]} accessible accessibilityLabel="Verification failed">
             <View style={styles.panelHeader}>
-              <Feather name="x-circle" size={20} color={Colors.status.error} />
-              <ThemedText type="body" style={styles.errorTitle}>✖ Invalid / Expired / Wrong Stage</ThemedText>
+              <Feather name="x-circle" size={24} color={Colors.status.error} />
+              <ThemedText type="h3" style={styles.errorTitle}>✖ VERIFICATION FAILED</ThemedText>
             </View>
             <ThemedText type="caption">{errorMessage || "Scan could not be verified."}</ThemedText>
           </View>
@@ -179,6 +200,9 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: Spacing.lg,
   },
+  containerHighContrast: {
+    backgroundColor: Colors.light.backgroundRoot,
+  },
   content: {
     gap: Spacing.sm,
     flexGrow: 1,
@@ -193,6 +217,10 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.full,
     padding: Spacing.xs,
   },
+  toggleWrapHighContrast: {
+    borderWidth: 1,
+    borderColor: Colors.light.text,
+  },
   modeCell: {
     flex: 1,
   },
@@ -205,6 +233,10 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     backgroundColor: Colors.light.backgroundSecondary,
     gap: Spacing.xs,
+  },
+  tokenAreaHighContrast: {
+    borderWidth: 1,
+    borderColor: Colors.light.text,
   },
   label: {
     fontWeight: "600",
@@ -226,9 +258,16 @@ const styles = StyleSheet.create({
     minHeight: Spacing.buttonHeight,
     backgroundColor: Colors.light.backgroundRoot,
   },
+  inputHighContrast: {
+    borderColor: Colors.light.text,
+    borderWidth: 2,
+  },
   actions: {
     marginTop: Spacing.sm,
     gap: Spacing.sm,
+  },
+  resultPanel: {
+    minHeight: 140,
   },
   panelHeader: {
     flexDirection: "row",
@@ -244,6 +283,9 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
     ...Shadows.sm,
   },
+  successPanelHighContrast: {
+    borderWidth: 2,
+  },
   errorPanel: {
     borderRadius: BorderRadius.sm,
     padding: Spacing.lg,
@@ -252,6 +294,9 @@ const styles = StyleSheet.create({
     borderColor: Colors.status.error,
     gap: Spacing.xs,
     ...Shadows.sm,
+  },
+  errorPanelHighContrast: {
+    borderWidth: 2,
   },
   successTitle: {
     color: Colors.status.success,

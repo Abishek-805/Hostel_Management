@@ -1,13 +1,35 @@
 import GatePass from '../models/GatePass';
 import StudentGateState from '../models/StudentGateState';
 import GateLog from '../models/GateLog';
+import CurfewConfig from '../models/CurfewConfig';
 import { GATE_CAMPUS_CUTOFF_HOUR, GATE_CAMPUS_CUTOFF_MINUTE, GATE_CURFEW_CHECK_INTERVAL_MS } from '../config/gate';
+import { logSystemEvent } from './systemEventLogger';
 
 let intervalRef: NodeJS.Timeout | null = null;
 
 function getCutoffDate(now: Date): Date {
   const cutoff = new Date(now);
   cutoff.setHours(GATE_CAMPUS_CUTOFF_HOUR, GATE_CAMPUS_CUTOFF_MINUTE, 0, 0);
+  return cutoff;
+}
+
+async function getRuntimeCutoff(now: Date): Promise<Date | null> {
+  const config = await CurfewConfig.findOne({}).lean<{
+    enabled: boolean;
+    campusCutoffHour: number;
+    campusCutoffMinute: number;
+  }>();
+  if (config && !config.enabled) {
+    return null;
+  }
+
+  const cutoff = new Date(now);
+  cutoff.setHours(
+    config?.campusCutoffHour ?? GATE_CAMPUS_CUTOFF_HOUR,
+    config?.campusCutoffMinute ?? GATE_CAMPUS_CUTOFF_MINUTE,
+    0,
+    0
+  );
   return cutoff;
 }
 
@@ -41,28 +63,21 @@ async function lockStateAndPass(userId: string, gatePassId: string, reason: stri
     },
   });
 
+  await logSystemEvent({
+    event: 'GATE_LATE_LOCK',
+    userId,
+    gatePassId,
+    metadata: { source: 'curfew-monitor', reason },
+  });
+
   console.warn(`🚨 Curfew lock: user=${userId}, gatePassId=${gatePassId}, reason=${reason}`);
 }
 
 export async function runCurfewMonitorCycle(): Promise<void> {
   const now = new Date();
-  const cutoff = getCutoffDate(now);
-
-  const outsideLateStates = await StudentGateState.find({
-    currentState: 'OUTSIDE_CAMPUS',
-  });
-
-  for (const state of outsideLateStates) {
-    const activePass = await GatePass.findOne({
-      userId: state.userId,
-      status: { $in: ['APPROVED', 'LATE'] },
-      expectedReturnTime: { $lt: now },
-    })
-      .sort({ expectedReturnTime: -1 });
-
-    if (activePass) {
-      await lockStateAndPass(state.userId.toString(), activePass.gatePassId, 'OUTSIDE_CAMPUS_AFTER_EXPECTED_RETURN');
-    }
+  const cutoff = await getRuntimeCutoff(now);
+  if (!cutoff) {
+    return;
   }
 
   if (now >= cutoff) {

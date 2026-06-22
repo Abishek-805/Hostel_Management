@@ -25,6 +25,7 @@ import MealAnalyticsScreen from "@/screens/admin/MealAnalyticsScreen";
 import StudentManagementScreen from "@/screens/admin/StudentManagementScreen";
 import FoodPollScreen from "@/screens/admin/FoodPollScreen";
 import AdminGateDashboardScreen from "@/screens/admin/AdminGateDashboardScreen";
+import AdminNotificationsScreen from "@/screens/admin/AdminNotificationsScreen";
 
 export type AdminTabParamList = {
   HomeTab: undefined;
@@ -47,6 +48,7 @@ export type AdminStackParamList = {
   LeaveApprovals: undefined;
   RoomChangeApprovals: undefined;
   GateDashboard: undefined;
+  Notifications: undefined;
   ComplaintManagement: undefined;
   StudentManagement: undefined;
   Profile: undefined;
@@ -97,6 +99,14 @@ function HomeStack() {
         component={StudentManagementScreen}
         options={{
           headerTitle: "Student Roster",
+          headerLeft: (props) => <BackToHomeButton {...props} />
+        }}
+      />
+      <Stack.Screen
+        name="Notifications"
+        component={AdminNotificationsScreen}
+        options={{
+          headerTitle: "Notifications",
           headerLeft: (props) => <BackToHomeButton {...props} />
         }}
       />
