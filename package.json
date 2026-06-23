@@ -11,9 +11,10 @@
     "server:build": "esbuild server/index.ts --platform=node --packages=external --bundle --format=cjs --outdir=server_dist && node scripts/sync-weights.js",
     "server:prod": "cross-env NODE_ENV=production node server_dist/index.js",
     "db:push": "drizzle-kit push",
+    "build": "npx expo export --platform web",
     "lint": "npx expo lint",
     "lint:fix": "npx expo lint --fix",
-    "check:types": "tsc --noEmit",
+    "check:types": "tsc --noEmit", 
     "test:gate-smoke": "node tests/smoke-gate-system.js",
     "check:format": "prettier --check \"**/*.{js,ts,tsx,css,json}\"",
     "format": "prettier --write \"**/*.{js,ts,tsx,css,json}\""
