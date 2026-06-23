@@ -1,7 +1,7 @@
 import { Platform } from "react-native";
 
 const PRODUCTION_API_BASE_URL = "https://hostel-management-4el0.onrender.com";
-const WEB_DEVELOPMENT_API_BASE_URL = "http://localhost:5001";
+const WEB_DEVELOPMENT_API_BASE_URL = "https://hostel-management-4el0.onrender.com";
 const LOCALHOST_URL_PATTERN = /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?$/i;
 
 const isDevelopmentRuntime = (() => {

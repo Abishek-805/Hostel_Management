@@ -16,6 +16,6 @@ function getRequiredEnv(name: string): string {
 }
 
 export const APP_ORIGIN =
-  process.env.APP_ORIGIN || "https://hostel-management-4el0.onrender.com";
+  process.env.APP_ORIGIN || "https://hostel-management-1.vercel.app";
 export const MONGODB_URI = getRequiredEnv("MONGODB_URI");
 export const JWT_SECRET = getRequiredEnv("JWT_SECRET");

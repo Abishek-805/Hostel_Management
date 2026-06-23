@@ -37,6 +37,12 @@ declare module "http" {
 }
 
 /* =========================
+   Express proxy correctness (Render / Vercel)
+========================= */
+// Ensure req.ip / X-Forwarded-* behave correctly behind proxies
+app.set("trust proxy", 1);
+
+/* =========================
    ✅ CORS (FIXED)
 ========================= */
 function setupCors(app: express.Application) {
